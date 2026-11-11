@@ -58,7 +58,19 @@
   .slot { display: flex; align-items: center; gap: 6px; }
   .meld { display: inline-flex; gap: 1px; padding: 3px; border: 1px dashed var(--line); border-radius: 8px; align-items: center; }
   .meld .x { border: 0; background: none; color: var(--muted); padding: 0 4px; }
-  .bonus { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--tile); color: var(--ink); font-size: 13px; }
+  .bonus-pick { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: none;
+    color: var(--muted); font-size: 11px; padding: 2px; width: 62px; hyphens: manual; text-align: center; }
+  .bonus-pick:disabled { opacity: .35; cursor: default; }
+  .btile { position: relative; display: inline-grid; place-items: center; width: 46px; height: 60px; border-radius: 6px;
+    background: var(--tile); border: 1px solid var(--tile-edge); box-shadow: 0 2px 0 var(--tile-edge); padding: 0; }
+  .btile svg { width: 34px; height: 34px; }
+  .btile .num { position: absolute; top: 3px; left: 4px; font-size: 11px; font-weight: 700; line-height: 1; }
+  .btile .num.f { color: var(--m); } .btile .num.s { color: var(--p); }
+  .btile .tai { position: absolute; top: -7px; right: -7px; background: var(--accent); color: var(--accent-ink);
+    font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 5px; }
+  .btile.small { width: 34px; height: 44px; } .btile.small svg { width: 26px; height: 26px; }
+  .bonus-group { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .bonus-group h3 { width: 100%; margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); }
   .headline { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
   .warn { background: var(--warn-bg); color: var(--warn-ink); padding: 8px 10px; border-radius: 8px; margin: 6px 0; font-size: 14px; }
   .opt { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
@@ -121,7 +133,8 @@
       <button class="tab" data-target="bonus">Flowers / animals</button>
     </div>
     <div class="palette" id="palette"></div>
-    <div class="row" id="bonusPalette" hidden></div>
+    <div id="bonusPalette" hidden></div>
+    <p class="muted" id="bonusHint" hidden></p>
     <details style="margin-top:6px"><summary>Seen elsewhere (<span id="seenCount">0</span>), tap to remove</summary>
       <div class="row" id="seen" style="margin-top:6px"></div></details>
   </section>
@@ -137,9 +150,79 @@ const SUITS = { m: "萬", p: "筒", s: "索" };
 const HONORS = ["東", "南", "西", "北", "白", "發", "中"];
 const HONOR_NAMES = ["East wind", "South wind", "West wind", "North wind", "White dragon", "Green dragon", "Red dragon"];
 const SUIT_NAMES = { m: "Characters", p: "Dots", s: "Bamboo" };
-const BONUS = [["f1","Plum"],["f2","Orchid"],["f3","Chrysanthemum"],["f4","Bamboo"],
-               ["s1","Spring"],["s2","Summer"],["s3","Autumn"],["s4","Winter"],
-               ["cat","Cat"],["rat","Rat"],["rooster","Rooster"],["centipede","Centipede"]];
+// Bonus tiles: [id, name, group]. Flowers and seasons carry a number 1-4 matching seats E, S, W, N.
+const BONUS = [["f1","Plum","f"],["f2","Orchid","f"],["f3","Chrysanthemum","f"],["f4","Bamboo","f"],
+               ["s1","Spring","s"],["s2","Summer","s"],["s3","Autumn","s"],["s4","Winter","s"],
+               ["cat","Cat","a"],["rat","Rat","a"],["rooster","Rooster","a"],["centipede","Centipede","a"]];
+// Original line art for each bonus tile, drawn on a 32x32 grid.
+const petals = (n, rx, ry, cy, fill) => Array.from({ length: n }, (_, i) =>
+  `<ellipse cx="16" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}" transform="rotate(${i * 360 / n} 16 16)"/>`).join("");
+const centipedeArt = (() => {
+  const segs = [[7,25],[10.5,22.2],[14,19.6],[17.5,17],[21,14.4],[24.5,11.8]];
+  const legs = segs.map(([x, y]) => `M${x + 1.4} ${y + 1.9}l1.6 2.2M${x - 1.4} ${y - 1.9}l-1.6 -2.2`).join("");
+  return `<path d="${legs}" stroke="#8a4a1f" stroke-width="1.2" stroke-linecap="round"/>`
+    + segs.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="2.7" fill="${i % 2 ? "#b8562a" : "#d9772f"}"/>`).join("")
+    + `<circle cx="27.6" cy="8.6" r="3" fill="#a3372a"/><circle cx="28.4" cy="7.8" r=".8" fill="#fff"/>`
+    + `<path d="M29 6.2q1-3 3-3.4M26.6 6q-.4-3.2 1-4.6" stroke="#8a4a1f" stroke-width="1" fill="none" stroke-linecap="round"/>`;
+})();
+const orchidPetal = (deg, rx, ry, fill) =>
+  `<g transform="rotate(${deg} 16 14)"><ellipse cx="16" cy="7" rx="${rx}" ry="${ry}" fill="${fill}"/></g>`;
+const BONUS_ART = {
+  f1: `<path d="M3 30Q9 22 14 19" stroke="#6b4a2f" stroke-width="2" fill="none" stroke-linecap="round"/>`
+    + [[16,9],[22.7,13.8],[20.1,21.7],[11.9,21.7],[9.3,13.8]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#e86a92"/>`).join("")
+    + `<circle cx="16" cy="16" r="3.2" fill="#f6c945"/>`,
+  f2: `<path d="M16 31C16 26 15 22 16 18" stroke="#3f8f4a" stroke-width="2" fill="none"/>`
+    + `<path d="M16 30C10 27 6 22 5 15" stroke="#4fa356" stroke-width="1.6" fill="none"/>`
+    + orchidPetal(144, 2.6, 6, "#c9a6ec") + orchidPetal(-144, 2.6, 6, "#c9a6ec")
+    + orchidPetal(0, 3.2, 6.5, "#9b6bd1") + orchidPetal(72, 3, 6.2, "#9b6bd1") + orchidPetal(-72, 3, 6.2, "#9b6bd1")
+    + `<circle cx="16" cy="14" r="2.4" fill="#f6c945"/>`,
+  f3: petals(16, 1.9, 6.5, 8, "#f0a530") + petals(12, 1.7, 4.2, 11, "#f6c945") + `<circle cx="16" cy="16" r="3" fill="#d9772f"/>`,
+  f4: `<rect x="9" y="3" width="5" height="27" rx="2" fill="#3f8f4a"/><rect x="18" y="8" width="4" height="22" rx="2" fill="#5aa65e"/>`
+    + `<path d="M9 11h5M9 20h5M18 15h4M18 23h4" stroke="#2c6a35" stroke-width="1.4"/>`
+    + `<path d="M14 11q7-6 14-4q-6 5-14 4z" fill="#6fbf6a"/><path d="M18 17q-8-3-13 0q7 3 13 0z" fill="#4fa356"/>`,
+  s1: `<rect x="6" y="26" width="20" height="4" rx="2" fill="#9a6b3f"/><path d="M16 27V14" stroke="#3f8f4a" stroke-width="2.2"/>`
+    + `<path d="M16 19C9 19 5 14 5 9C11 9 16 13 16 19z" fill="#7cc46f"/><path d="M16 15C23 15 27 10 27 5C20 5 16 9 16 15z" fill="#4fa356"/>`,
+  s2: `<g stroke="#e8902a" stroke-width="2.4" stroke-linecap="round">`
+    + Array.from({ length: 8 }, (_, i) => `<path d="M16 2.5v4" transform="rotate(${i * 45} 16 16)"/>`).join("")
+    + `</g><circle cx="16" cy="16" r="7.5" fill="#f6c945" stroke="#e8902a" stroke-width="1.5"/>`,
+  s3: `<path d="M16 3L19 10L26 8L23 15L29 18L21 20L22 27L16 23L10 27L11 20L3 18L9 15L6 8L13 10Z" fill="#d9662b"/>`
+    + `<path d="M16 31V9M16 20L10 14M16 20L22 14" stroke="#8a3a17" stroke-width="1.3" fill="none" stroke-linecap="round"/>`,
+  s4: `<g stroke="#4a8fd6" stroke-width="2" stroke-linecap="round" fill="none">`
+    + [0, 60, 120].map(a => `<g transform="rotate(${a} 16 16)"><path d="M16 3v26M16 7l-3.5-3M16 7l3.5-3M16 25l-3.5 3M16 25l3.5 3"/></g>`).join("")
+    + `</g>`,
+  cat: `<path d="M3.5 18.5h7M3.5 22l7-1.5M28.5 18.5h-7M28.5 22l-7-1.5" stroke="#8a6d3b" stroke-width=".9" stroke-linecap="round"/>`
+    + `<path d="M7 12L8.5 3.5L14 9H18L23.5 3.5L25 12C27 15 27 22 22 26C19 28 13 28 10 26C5 22 5 15 7 12Z" fill="#e09a3e"/>`
+    + `<path d="M9.5 6.5L13 9.5M22.5 6.5L19 9.5" stroke="#f3c98c" stroke-width="1.6" stroke-linecap="round"/>`
+    + `<ellipse cx="12.5" cy="16" rx="1.7" ry="2.3" fill="#2b2b2b"/><ellipse cx="19.5" cy="16" rx="1.7" ry="2.3" fill="#2b2b2b"/>`
+    + `<path d="M14.8 20h2.4L16 21.6z" fill="#c4456a"/><path d="M16 21.6q-1 1.6-2.6 1M16 21.6q1 1.6 2.6 1" stroke="#7a4a1a" stroke-width=".8" fill="none"/>`,
+  rat: `<path d="M6 22C1 22 1 28 7 28S13 29 15 26" stroke="#c48a95" stroke-width="1.6" fill="none" stroke-linecap="round"/>`
+    + `<path d="M5 23C5 16 11 12 17 12C22 12 25 15 29 20.5C27 22 24 23 20 23Z" fill="#9aa0a6"/>`
+    + `<circle cx="19" cy="12" r="3.6" fill="#9aa0a6"/><circle cx="19" cy="12" r="2.1" fill="#e3b5bc"/>`
+    + `<circle cx="24.5" cy="17.6" r="1.1" fill="#2b2b2b"/><circle cx="29" cy="20.5" r="1" fill="#c4456a"/>`
+    + `<path d="M11 23v2.5M18 23v2.5" stroke="#c48a95" stroke-width="1.4" stroke-linecap="round"/>`,
+  rooster: `<path d="M11 15C6 11 4 7 6 3.5C8 8 11 9.5 13 12M10 17C5 15 2.5 12 2.5 8.5" stroke="#2f7d6a" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
+    + `<path d="M15 26V30M20 26V30M13 30h4M18 30h4" stroke="#e8a33d" stroke-width="1.6" stroke-linecap="round"/>`
+    + `<path d="M9 15C9 22 13 26 18 26C24 26 26 21 25 16L23.5 10C22 7 18 7.5 18 11L18.5 15C15 15 12 13.5 9 15Z" fill="#f0e6d2" stroke="#8a6d3b" stroke-width=".8"/>`
+    + `<path d="M18 8.2C17.6 5 19.6 4.6 20.2 6.6C20.4 3.6 23.2 3.8 22.6 6.6C24.6 5.8 25.6 8 23 9Z" fill="#d23b2a"/>`
+    + `<path d="M25 10.5L28.5 11.8L25 13Z" fill="#e8a33d"/><ellipse cx="24.4" cy="15" rx="1.1" ry="1.9" fill="#d23b2a"/>`
+    + `<circle cx="22.2" cy="11" r="1" fill="#2b2b2b"/>`,
+  centipede: centipedeArt,
+};
+const SEAT_NO = { E: 1, S: 2, W: 3, N: 4 };
+// Does this bonus tile score for the current seat? Animals always do; flowers and seasons only on your seat number.
+const bonusScores = id => id.length > 2 || +id[1] === SEAT_NO[settings.seat];
+
+function bonusTileEl(id, { small = false } = {}) {
+  const [, name, group] = BONUS.find(b => b[0] === id);
+  const el = document.createElement("span");
+  el.className = "btile" + (small ? " small" : "");
+  el.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true">${BONUS_ART[id]}</svg>`
+    + (group !== "a" ? `<span class="num ${group}">${id[1]}</span>` : "")
+    + (bonusScores(id) ? `<span class="tai" title="Scores 1 tai for you">+1</span>` : "");
+  el.setAttribute("role", "img");
+  el.setAttribute("aria-label", name);
+  return el;
+}
 const ALL = [];
 for (const s of "mps") for (let n = 1; n <= 9; n++) ALL.push(n + s);
 for (let n = 1; n <= 7; n++) ALL.push(n + "z");
@@ -208,7 +291,8 @@ function render() {
   });
   // bonus
   const bonus = document.getElementById("bonus"); bonus.replaceChildren();
-  state.bonus.forEach(b => { const el = document.createElement("button"); el.className = "bonus"; el.textContent = BONUS.find(x => x[0] === b)[1] + " ×";
+  state.bonus.forEach(b => { const el = document.createElement("button"); el.className = "bonus-pick"; el.type = "button";
+    el.title = `Remove ${BONUS.find(x => x[0] === b)[1]}`; el.appendChild(bonusTileEl(b, { small: true }));
     el.addEventListener("click", () => change(() => state.bonus.splice(state.bonus.indexOf(b), 1))); bonus.appendChild(el); });
   // tabs
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-pressed", b.dataset.target === state.target));
@@ -227,8 +311,23 @@ function render() {
     pal.appendChild(row);
   }
   bp.replaceChildren();
-  BONUS.forEach(([id, name]) => { const el = document.createElement("button"); el.className = "bonus"; el.textContent = name;
-    el.disabled = state.bonus.includes(id); el.addEventListener("click", () => change(() => state.bonus.push(id))); bp.appendChild(el); });
+  for (const [group, title] of [["f", "Flowers"], ["s", "Seasons"], ["a", "Animals (always +1)"]]) {
+    const g = document.createElement("div"); g.className = "bonus-group";
+    const h = document.createElement("h3"); h.textContent = title; g.appendChild(h);
+    BONUS.filter(b => b[2] === group).forEach(([id, name]) => {
+      const el = document.createElement("button"); el.className = "bonus-pick"; el.type = "button";
+      el.appendChild(bonusTileEl(id)); el.appendChild(document.createTextNode(name.replace("Chrysanthemum", "Chrysan­themum")));
+      el.disabled = state.bonus.includes(id);
+      el.addEventListener("click", () => change(() => state.bonus.push(id)));
+      g.appendChild(el);
+    });
+    bp.appendChild(g);
+  }
+  const hint = document.getElementById("bonusHint");
+  hint.hidden = state.target !== "bonus";
+  hint.textContent = `As ${({E: "East", S: "South", W: "West", N: "North"})[settings.seat]} seat, flower `
+    + `${SEAT_NO[settings.seat]} and season ${SEAT_NO[settings.seat]} score for you. `
+    + `A full set of four flowers or four seasons scores 2.`;
   // seen
   document.getElementById("seenCount").textContent = state.seen.length;
   const seen = document.getElementById("seen"); seen.replaceChildren();
