@@ -9,7 +9,8 @@ Jev only ever chooses between moves the engine has already checked, so it
 cannot suggest an illegal play. If no API key is set, or the call fails,
 the engine's own ranking is used and the result says why.
 
-Configuration (environment variables, never committed):
+Configuration (environment variables or the git-ignored ``.env`` file; see
+``.env.example``, which points at Jev on OpenCode):
     JEV_API_KEY   required to use Jev
     JEV_MODEL     default "typesafe/jev-1.14"
     JEV_API_URL   default "https://thejevai.com/v1/systemone"
@@ -25,6 +26,7 @@ import urllib.request
 DEFAULT_URL = "https://thejevai.com/v1/systemone"
 DEFAULT_MODEL = "typesafe/jev-1.14"
 MAX_OPTIONS = 12
+USER_AGENT = "mahjong-coach/0.1"
 INSTRUCTIONS = (
     "You are coaching a new Singapore mahjong player during their turn. "
     "Pick the move that gives the best chance of completing a hand that pays at least the "
@@ -81,7 +83,9 @@ def _post(body: dict, timeout: float) -> dict:
         os.environ.get("JEV_API_URL", DEFAULT_URL),
         data=json.dumps(body).encode(),
         headers={"Authorization": f"Bearer {os.environ['JEV_API_KEY']}",
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 # OpenCode's firewall blocks Python's default "Python-urllib" agent (403, code 1010).
+                 "User-Agent": USER_AGENT},
         method="POST",
     )
     for attempt in range(2):
@@ -108,7 +112,9 @@ def decide(result: dict, table: dict, timeout: float = 8.0) -> dict:
         return result
     try:
         body = _post(build_request(result, table), timeout)
-        answer = body["data"]["result"]["answers"]["move"]
+        # TypeSafe nests answers under data.result; OpenCode returns them at the top level.
+        answers = body["answers"] if "answers" in body else body["data"]["result"]["answers"]
+        answer = answers["move"]
         choice = answer["choice"]
         probs = answer.get("probabilities", {})
     except (urllib.error.URLError, OSError, KeyError, TypeError, ValueError) as e:

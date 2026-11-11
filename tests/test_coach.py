@@ -119,8 +119,15 @@ class AdvisorTests(unittest.TestCase):
             advise(state("1111m456p789s11z9m", seen="1m"))
 
 
+def clean_env(**values):
+    """A cleared environment for patch.dict, keeping what Windows needs for SSL."""
+    keep = {k: os.environ[k] for k in ("SYSTEMROOT", "WINDIR") if k in os.environ}
+    return {**keep, **values}
+
+
 class FakeJev(BaseHTTPRequestHandler):
     last_body = None
+    opencode_shape = False
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -128,9 +135,14 @@ class FakeJev(BaseHTTPRequestHandler):
         FakeJev.auth = self.headers.get("Authorization")
         ids = list(body["questions"]["move"]["criteria"])
         pick = ids[-1]  # deliberately pick something other than the engine's first choice
-        out = {"code": 0, "data": {"result": {"answers": {"move": {
+        FakeJev.agent = self.headers.get("User-Agent")
+        answers = {"move": {
             "type": "choice", "choice": pick, "probabilities": {i: (0.9 if i == pick else 0.0) for i in ids},
-            "confidence": 0.8}}}}}
+            "confidence": 0.8}}
+        if FakeJev.opencode_shape:
+            out = {"model": body["model"], "answers": answers}
+        else:
+            out = {"code": 0, "data": {"result": {"answers": answers}}}
         data = json.dumps(out).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -146,7 +158,7 @@ class JevTests(unittest.TestCase):
     payload = {"hand": "123m456p789s11z13s", "drawn": "4z"}
 
     def test_engine_fallback_without_key(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(os.environ, clean_env(), clear=True):
             r = advise_from_json(dict(self.payload))
         self.assertEqual(r["decided_by"]["source"], "engine")
         self.assertEqual(r["options"][0]["tile"], "4z")
@@ -156,7 +168,7 @@ class JevTests(unittest.TestCase):
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         env = {"JEV_API_KEY": "test-key", "JEV_API_URL": f"http://127.0.0.1:{srv.server_port}/v1/systemone"}
         try:
-            with mock.patch.dict(os.environ, env, clear=True):
+            with mock.patch.dict(os.environ, clean_env(**env), clear=True):
                 r = advise_from_json(dict(self.payload))
         finally:
             srv.shutdown()
@@ -167,12 +179,45 @@ class JevTests(unittest.TestCase):
         self.assertTrue(r["options"][0]["recommended"])
         self.assertTrue(any(o.get("engine_pick") for o in r["options"][1:]))
 
+    def test_opencode_response_shape(self):
+        srv = HTTPServer(("127.0.0.1", 0), FakeJev)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        env = {"JEV_API_KEY": "test-key", "JEV_MODEL": "jev-1.13",
+               "JEV_API_URL": f"http://127.0.0.1:{srv.server_port}/inference/systemone/v1/systemone"}
+        FakeJev.opencode_shape = True
+        try:
+            with mock.patch.dict(os.environ, clean_env(**env), clear=True):
+                r = advise_from_json(dict(self.payload))
+        finally:
+            FakeJev.opencode_shape = False
+            srv.shutdown()
+        self.assertEqual(FakeJev.last_body["model"], "jev-1.13")
+        self.assertNotIn("Python-urllib", FakeJev.agent)
+        self.assertEqual(r["decided_by"]["source"], "jev")
+
     def test_jev_unreachable_falls_back(self):
         env = {"JEV_API_KEY": "test-key", "JEV_API_URL": "http://127.0.0.1:9/v1/systemone"}
-        with mock.patch.dict(os.environ, env, clear=True):
+        with mock.patch.dict(os.environ, clean_env(**env), clear=True):
             r = advise_from_json(dict(self.payload))
         self.assertEqual(r["decided_by"]["source"], "engine")
         self.assertIn("unavailable", r["decided_by"]["note"])
+
+
+class DotenvTest(unittest.TestCase):
+    def test_reads_file_and_keeps_real_env(self):
+        import tempfile
+        from mahjong_coach.env import load_dotenv
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, ".env")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("# comment\n\nJEV_API_KEY=\"from-file\"\n"
+                        "JEV_MODEL=jev-1.13-free  # note\nexport JEV_API_URL=https://x/y\n")
+            with mock.patch.dict(os.environ, {"JEV_API_KEY": "from-shell"}, clear=True):
+                self.assertTrue(load_dotenv(path))
+                self.assertEqual(os.environ["JEV_API_KEY"], "from-shell")
+                self.assertEqual(os.environ["JEV_MODEL"], "jev-1.13-free")
+                self.assertEqual(os.environ["JEV_API_URL"], "https://x/y")
+            self.assertFalse(load_dotenv(os.path.join(d, "missing.env")))
 
 
 if __name__ == "__main__":
