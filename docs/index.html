@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turn Coach</title>
+<meta name="description" content="Turn Coach tells new Singapore mahjong players what to discard or call, which tiles to wait for, and what a win would pay, in seconds.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+  :root {
+    --bg: #F7F1E6; --panel: #FFFFFF; --ink: #1A1714; --muted: #5E574E; --line: #E4DACA;
+    --tile: #FFFDF7; --tile-edge: #CFC8B6; --red: #C8281E; --red-deep: #8F1B14; --red-ink: #FFFFFF;
+    --soft: #FBEDEA; --good: #1E6B4A; --warn-bg: #FBE7D3; --warn-ink: #7A3A0A;
+    --m: #B4372A; --p: #2B5FA8; --s: #2F7D3A; --z: #1A1714;
+    --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --han: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15110E; --panel: #211B17; --ink: #F3ECE2; --muted: #B3A99C; --line: #3A322B;
+      --tile: #FFFDF7; --tile-edge: #CFC8B6; --red: #E2554A; --red-deep: #7A1A13; --red-ink: #15110E;
+      --soft: #3A1F1B; --good: #7FD1A8; --warn-bg: #3A2412; --warn-ink: #F5C08A;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 var(--sans); }
+  a { color: var(--red); }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 22px;
+    border-radius: 14px; font-weight: 800; font-size: 16px; text-decoration: none; border: 2px solid var(--ink); color: var(--ink); }
+  .btn.primary { background: var(--red); border-color: var(--red); color: var(--red-ink); box-shadow: 0 5px 0 var(--red-deep); }
+  .btn.primary:hover { transform: translateY(1px); box-shadow: 0 4px 0 var(--red-deep); }
+  .kicker { font-size: 13px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--red); }
+  h1, h2, h3 { letter-spacing: -0.025em; line-height: 1.05; margin: 0; }
+  h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 900; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 52ch; }
+
+  /* Nav */
+  nav { display: flex; align-items: center; gap: 12px; padding: 18px 0; }
+  nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 20px; text-decoration: none; color: var(--ink); }
+  nav .brand svg { width: 34px; height: 40px; }
+  nav .links { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+  nav .links a { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; }
+  nav .links a.btn { min-height: 42px; padding: 0 16px; font-size: 15px; }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 48px; align-items: center; padding: 40px 0 72px; }
+  .hero h1 { font-size: clamp(44px, 6.4vw, 80px); font-weight: 900; margin: 14px 0 18px; }
+  .hero h1 em { font-style: normal; color: var(--red); }
+  .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  .stage { position: relative; display: flex; justify-content: center; min-height: 640px; }
+
+  /* Tiles */
+  .t { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+    width: 22px; height: 30px; border-radius: 4px; background: var(--tile); border: 1px solid var(--tile-edge);
+    box-shadow: 0 2px 0 var(--tile-edge); color: #1A1714; font-family: var(--sans); flex-shrink: 0; }
+  .t b { font-size: 12px; font-weight: 800; } .t i { font-style: normal; font-family: var(--han); font-size: 7px; margin-top: 1px; }
+  .t.z b { font-family: var(--han); font-weight: 900; }
+  .t.m { color: #B4372A; } .t.p { color: #2B5FA8; } .t.s { color: #2F7D3A; } .t.z7 { color: #C8281E; }
+  .t.lg { width: 34px; height: 46px; border-radius: 6px; box-shadow: 0 3px 0 var(--tile-edge); }
+  .t.lg b { font-size: 19px; } .t.lg i { font-size: 10px; }
+  .t.key { border: 2px solid #C8281E; box-shadow: 0 3px 0 #8F1B14; }
+  .t .n { position: absolute; top: -7px; right: -8px; background: #1A1714; color: #F7F1E6; font-size: 10px; font-weight: 800;
+    border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; font-family: var(--sans); }
+  .pop { animation: pop .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes pop { from { transform: scale(.3) translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* Phone demo */
+  .phone { width: 304px; height: 620px; border-radius: 44px; background: #1A1714; padding: 11px; box-shadow: 0 30px 60px -20px rgba(26, 23, 20, .45); position: relative; z-index: 1; }
+  .screen { width: 100%; height: 100%; border-radius: 34px; background: #F7F1E6; color: #1A1714; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 16px 14px; }
+  .ph-head { display: flex; align-items: center; gap: 7px; font-weight: 900; font-size: 14px; }
+  .ph-head svg { width: 20px; height: 24px; }
+  .ph-event { height: 30px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #5E574E; }
+  .ph-event .chip { display: inline-flex; align-items: center; gap: 6px; background: #FFFFFF; border: 1px solid #E4DACA; border-radius: 999px; padding: 2px 10px 2px 4px; }
+  .ph-card { flex: 1; background: #FFFFFF; border: 2.5px solid #C8281E; border-radius: 20px; box-shadow: 0 5px 0 #8F1B14; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 7px; padding: 14px 12px; transition: border-color .3s, box-shadow .3s; }
+  .ph-card.idle { border: 1px solid #E4DACA; box-shadow: none; }
+  .ph-card .k { font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #C8281E; }
+  .ph-card.idle .k { color: #5E574E; }
+  .ph-card .tiles { display: flex; gap: 3px; min-height: 46px; align-items: center; }
+  .ph-card .verb { font-size: 40px; font-weight: 900; letter-spacing: -0.03em; line-height: 1; }
+  .ph-card .sub { font-size: 13px; font-weight: 600; }
+  .ph-card .rule { width: 34px; height: 2.5px; background: #C8281E; border-radius: 2px; }
+  .ph-card .why { font-size: 11.5px; color: #5E574E; max-width: 24ch; line-height: 1.4; }
+  .ph-card .watch { display: flex; gap: 12px; align-items: center; font-size: 11px; color: #5E574E; min-height: 34px; }
+  .ph-card .ctas { display: flex; gap: 6px; width: 100%; margin-top: 4px; }
+  .ph-card .ctas span { flex: 1; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 12.5px; font-weight: 800; border: 2px solid #1A1714; transition: transform .15s; }
+  .ph-card .ctas span.go { flex: 2; background: #C8281E; border-color: #C8281E; color: #FFFFFF; }
+  .ph-card .ctas span.press { transform: scale(.92); }
+  .ph-card.win { border-color: #C8281E; background: #FBEDEA; }
+  .ph-card .hidden { display: none; }
+  .ph-rack-label { font-size: 10.5px; color: #5E574E; display: flex; justify-content: space-between; }
+  .ph-melds { display: flex; gap: 2px; min-height: 0; }
+  .ph-rack { display: flex; flex-wrap: wrap; gap: 3px; min-height: 64px; align-content: flex-start; }
+  .ph-rack .t.out { transition: transform .45s ease-in, opacity .45s; transform: translateY(-60px) rotate(-12deg); opacity: 0; }
+  .fade-swap { animation: swap .35s ease both; }
+  @keyframes swap { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* Tile Buddy mascot */
+  .buddy-wrap { position: absolute; left: calc(50% - 310px); bottom: -10px; width: 150px; z-index: 2; }
+  .buddy { width: 150px; height: 175px; animation: bob 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+  .buddy .eyes { animation: blink 4.5s infinite; transform-origin: 60px 68px; }
+  .buddy .arm { animation: thumbs 2.6s ease-in-out infinite; transform-origin: 100px 92px; }
+  .buddy .tails { animation: flutter 1.2s ease-in-out infinite; transform-origin: 100px 36px; }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(2deg); } }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+  @keyframes thumbs { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-14deg); } }
+  @keyframes flutter { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(10deg); } }
+  .bubble { position: absolute; left: 96px; bottom: 168px; background: #FFFFFF; color: #1A1714; border: 2.5px solid #1A1714; border-radius: 16px;
+    padding: 8px 12px; font-weight: 800; font-size: 14px; white-space: nowrap; box-shadow: 0 4px 0 #1A1714; }
+  .bubble::after { content: ""; position: absolute; left: 18px; bottom: -11px; width: 16px; height: 16px; background: #FFFFFF;
+    border-right: 2.5px solid #1A1714; border-bottom: 2.5px solid #1A1714; transform: rotate(45deg); }
+  .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 34px; }
+  .confetti i { position: absolute; top: -12px; width: 8px; height: 12px; border-radius: 2px; animation: fall 1.6s ease-in forwards; }
+  @keyframes fall { to { transform: translateY(640px) rotate(540deg); opacity: .2; } }
+
+  /* Strip */
+  .strip { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .strip .wrap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; padding-top: 26px; padding-bottom: 26px; }
+  .strip b { display: block; font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+  .strip span { color: var(--muted); font-size: 15px; }
+
+  section { padding: 96px 0; }
+  .head { display: flex; flex-direction: column; gap: 14px; margin-bottom: 44px; max-width: 720px; }
+
+  /* Steps */
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; counter-reset: step; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px; }
+  .step .num { width: 40px; height: 40px; border-radius: 12px; background: var(--red); color: var(--red-ink); display: grid; place-items: center; font-weight: 900; font-size: 18px; margin-bottom: 14px; }
+  .step h3 { font-size: 21px; font-weight: 800; margin-bottom: 8px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  /* Features */
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .feat { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; display: flex; flex-direction: column; }
+  .feat .demo { height: 200px; background: var(--soft); display: grid; place-items: center; position: relative; overflow: hidden; color: #1A1714; }
+  .feat .txt { padding: 20px 22px 24px; }
+  .feat h3 { font-size: 21px; font-weight: 800; margin-bottom: 8px; }
+  .feat p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  /* f1: one clear call */
+  .call { width: 150px; height: 130px; background: #FFFFFF; border: 2.5px solid #C8281E; border-radius: 18px; box-shadow: 0 5px 0 #8F1B14; display: grid; place-items: center; position: relative; }
+  .call .k { position: absolute; top: 12px; font-size: 9px; font-weight: 800; letter-spacing: .16em; color: #C8281E; }
+  .call .w { position: absolute; font-size: 34px; font-weight: 900; letter-spacing: -0.03em; opacity: 0; animation: words 7.5s infinite; }
+  .call .w:nth-child(3) { animation-delay: 2.5s; } .call .w:nth-child(4) { animation-delay: 5s; }
+  @keyframes words { 0% { opacity: 0; transform: translateY(14px) scale(.9); } 5%, 28% { opacity: 1; transform: none; } 33%, 100% { opacity: 0; transform: translateY(-14px); } }
+
+  /* f2: tiles you still need */
+  .need { display: flex; gap: 22px; align-items: center; }
+  .need .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .need .pays { font-size: 12px; font-weight: 800; color: #1E6B4A; background: #FFFFFF; border-radius: 999px; padding: 3px 9px; }
+  .need .t.lg { animation: nudge 3s ease-in-out infinite; }
+  .need .col:nth-child(2) .t.lg { animation-delay: 1.5s; }
+  @keyframes nudge { 0%, 80%, 100% { transform: none; } 88% { transform: translateY(-6px); } }
+
+  /* f3: knows when tiles are gone */
+  .gone { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .gone .t.lg { transition: opacity .5s, filter .5s; }
+  .gone .t.lg.dead { opacity: .35; filter: grayscale(1); }
+  .gone .msg { background: #FBE7D3; color: #7A3A0A; font-size: 12.5px; font-weight: 700; border-radius: 10px; padding: 6px 10px; transition: opacity .4s, transform .4s; opacity: 0; transform: translateY(8px); }
+  .gone .msg.show { opacity: 1; transform: none; }
+
+  /* f4: scoring */
+  .score { width: 220px; display: flex; flex-direction: column; gap: 10px; }
+  .score .chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 58px; align-content: flex-start; }
+  .score .chip { background: #FFFFFF; border: 1px solid #E4DACA; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; }
+  .score .chip b { color: #C8281E; }
+  .score .meter { display: flex; gap: 5px; align-items: center; }
+  .score .meter i { flex: 1; height: 12px; border-radius: 6px; background: #E7DCCB; transition: background .3s; }
+  .score .meter i.on { background: #C8281E; }
+  .score .meter span { font-size: 13px; font-weight: 900; width: 46px; text-align: right; }
+
+  /* f5: Jev */
+  .jev { width: 230px; display: flex; flex-direction: column; gap: 10px; }
+  .jev .row { display: grid; grid-template-columns: 54px 1fr 38px; gap: 8px; align-items: center; font-size: 13px; font-weight: 700; }
+  .jev .bar { height: 12px; background: #E7DCCB; border-radius: 6px; overflow: hidden; }
+  .jev .bar i { display: block; height: 100%; width: 0; background: #1A1714; border-radius: 6px; transition: width 1s cubic-bezier(.2, .8, .2, 1); }
+  .jev .row.top .bar i { background: #C8281E; }
+  .jev .pct { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* f6: phone first */
+  .mini { display: flex; gap: 14px; }
+  .mini .p { width: 74px; height: 140px; border-radius: 16px; border: 5px solid #1A1714; padding: 8px 6px; display: flex; flex-direction: column; gap: 6px; align-items: center; animation: theme 6s infinite; }
+  .mini .p:nth-child(2) { animation-delay: 3s; }
+  .mini .p .c { width: 100%; flex: 1; border: 2px solid #C8281E; border-radius: 8px; display: grid; place-items: center; font-weight: 900; font-size: 13px; }
+  .mini .p .r { width: 100%; height: 10px; border-radius: 3px; background: currentColor; opacity: .25; }
+  @keyframes theme { 0%, 45% { background: #F7F1E6; color: #1A1714; } 55%, 100% { background: #15110E; color: #F3ECE2; } }
+
+  /* Get started */
+  .start { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+  pre { margin: 0; background: #1A1714; color: #F3ECE2; border-radius: 18px; padding: 22px; overflow-x: auto; font: 14.5px/1.7 ui-monospace, "Cascadia Code", Consolas, monospace; }
+  pre .c { color: #9C9183; }
+  .start ul { margin: 16px 0 0; padding-left: 20px; color: var(--muted); }
+  .start li { margin-bottom: 8px; }
+
+  footer { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  footer svg { width: 26px; height: 30px; }
+
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: minmax(0, 1fr); padding-top: 16px; }
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .start { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    nav .links a:not(.btn) { display: none; }
+    .steps, .features, .strip .wrap { grid-template-columns: minmax(0, 1fr); }
+    .strip .wrap { gap: 14px; }
+    section { padding: 64px 0; }
+    .stage { min-height: 640px; padding-top: 56px; }
+    .phone { transform: scale(.92); transform-origin: top center; }
+    .buddy-wrap { left: auto; right: -6px; top: -6px; bottom: auto; width: 92px; }
+    .buddy { width: 92px; height: 107px; }
+    .bubble { left: auto; right: 84px; bottom: auto; top: 6px; font-size: 13px; }
+    .bubble::after { left: auto; right: -11px; bottom: 12px; transform: rotate(-45deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .call .w:nth-child(2) { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="buddy-mark" viewBox="0 0 120 140">
+      <rect x="20" y="20" width="80" height="106" rx="18" fill="#D6CDB8" stroke="#1A1714" stroke-width="3.5"/>
+      <rect x="20" y="12" width="80" height="106" rx="18" fill="#FFFDF7" stroke="#1A1714" stroke-width="3.5"/>
+      <path d="M100 32 C110 30 114 24 117 18 M100 40 C110 44 112 52 116 58" stroke="#C8281E" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <rect x="17" y="26" width="86" height="22" rx="6" fill="#C8281E" stroke="#1A1714" stroke-width="3.5"/>
+      <rect x="51" y="31.5" width="18" height="11" rx="2.5" fill="none" stroke="#FFFDF7" stroke-width="3"/>
+      <rect x="58.5" y="28" width="3" height="18" rx="1.5" fill="#FFFDF7"/>
+      <ellipse cx="46" cy="68" rx="7" ry="9" fill="#1A1714"/><ellipse cx="74" cy="68" rx="7" ry="9" fill="#1A1714"/>
+      <circle cx="48.5" cy="64.5" r="2.6" fill="#FFFFFF"/><circle cx="76.5" cy="64.5" r="2.6" fill="#FFFFFF"/>
+      <ellipse cx="35" cy="83" rx="7" ry="4" fill="#F29A9A"/><ellipse cx="85" cy="83" rx="7" ry="4" fill="#F29A9A"/>
+      <path d="M47 84 Q60 100 73 84 Z" fill="#9E1F2B" stroke="#1A1714" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <nav aria-label="Main">
+    <a class="brand" href="#top"><svg aria-hidden="true"><use href="#buddy-mark"/></svg>Turn Coach</a>
+    <div class="links">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a class="btn" href="https://github.com/moobshake-git/mahjong-ai">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="hero" id="top">
+    <div>
+      <div class="kicker">Singapore mahjong · for new players</div>
+      <h1>Your best move, <em>in seconds.</em></h1>
+      <p class="lede">Turn Coach watches your hand and tells you what to discard or call, which tiles you're waiting on, and whether a win would pay. Right when you're deciding, not after.</p>
+      <div class="ctas">
+        <a class="btn primary" href="#start">Get started</a>
+        <a class="btn" href="#how">See how it works</a>
+      </div>
+    </div>
+
+    <div class="stage" id="demo" aria-label="Animated demo of one turn in Turn Coach">
+      <div class="phone">
+        <div class="screen" id="screen">
+          <div class="ph-head"><svg aria-hidden="true"><use href="#buddy-mark"/></svg>Turn Coach</div>
+          <div class="ph-event" id="event"></div>
+          <div class="ph-card idle" id="card">
+            <div class="k" id="k">START HERE</div>
+            <div class="tiles" id="cardTiles"></div>
+            <div class="verb" id="verb"></div>
+            <div class="sub" id="sub">Tap your 13 tiles</div>
+            <div class="rule hidden" id="rule"></div>
+            <div class="why" id="why"></div>
+            <div class="watch hidden" id="watch"></div>
+            <div class="ctas hidden" id="ctas"><span id="alt">Pass</span><span class="go" id="go">Pong 中</span></div>
+          </div>
+          <div class="ph-rack-label"><span>Your hand</span><span id="count">0 / 13</span></div>
+          <div class="ph-melds" id="melds"></div>
+          <div class="ph-rack" id="rack"></div>
+        </div>
+        <div class="confetti" id="confetti"></div>
+      </div>
+
+      <div class="buddy-wrap" aria-hidden="true">
+        <div class="bubble" id="bubble">Hi! Let's play.</div>
+        <svg class="buddy" viewBox="0 0 120 140">
+          <ellipse cx="60" cy="133" rx="36" ry="5" fill="#1A1714" opacity="0.12"/>
+          <rect x="20" y="20" width="80" height="106" rx="18" fill="#D6CDB8" stroke="#1A1714" stroke-width="3.5"/>
+          <rect x="20" y="12" width="80" height="106" rx="18" fill="#FFFDF7" stroke="#1A1714" stroke-width="3.5"/>
+          <g class="tails"><path d="M100 32 C110 30 114 24 117 18 M100 40 C110 44 112 52 116 58" stroke="#C8281E" stroke-width="7" stroke-linecap="round" fill="none"/></g>
+          <rect x="17" y="26" width="86" height="22" rx="6" fill="#C8281E" stroke="#1A1714" stroke-width="3.5"/>
+          <rect x="51" y="31.5" width="18" height="11" rx="2.5" fill="none" stroke="#FFFDF7" stroke-width="3"/>
+          <rect x="58.5" y="28" width="3" height="18" rx="1.5" fill="#FFFDF7"/>
+          <g class="eyes">
+            <ellipse cx="46" cy="68" rx="7" ry="9" fill="#1A1714"/><ellipse cx="74" cy="68" rx="7" ry="9" fill="#1A1714"/>
+            <circle cx="48.5" cy="64.5" r="2.6" fill="#FFFFFF"/><circle cx="76.5" cy="64.5" r="2.6" fill="#FFFFFF"/>
+          </g>
+          <ellipse cx="35" cy="83" rx="7" ry="4" fill="#F29A9A"/><ellipse cx="85" cy="83" rx="7" ry="4" fill="#F29A9A"/>
+          <path d="M47 84 Q60 100 73 84 Z" fill="#9E1F2B" stroke="#1A1714" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M54 92 Q60 96 66 92" stroke="#F29A9A" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g class="arm">
+            <path d="M100 92 C108 90 112 84 112 78" stroke="#1A1714" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <rect x="104" y="64" width="15" height="17" rx="6" fill="#FFFDF7" stroke="#1A1714" stroke-width="3"/>
+            <rect x="106" y="52" width="7" height="15" rx="3.5" fill="#FFFDF7" stroke="#1A1714" stroke-width="3"/>
+          </g>
+          <path d="M20 92 C13 96 11 104 13 110" stroke="#1A1714" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <circle cx="13.5" cy="112" r="6" fill="#FFFDF7" stroke="#1A1714" stroke-width="3"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="strip">
+  <div class="wrap">
+    <div><b>10–15 seconds a turn</b><span>The goal: a decision before the table gets impatient.</span></div>
+    <div><b>Singapore rules</b><span>Tai scoring with flowers and animals, 1 tai minimum, 5 tai cap.</span></div>
+    <div><b>At the table</b><span>Runs on your laptop; open it on your phone over Wi-Fi.</span></div>
+  </div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">How it works</div>
+      <h2>Four taps from "uh…" to a good move.</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>Enter your hand</h3><p>Tap your 13 tiles before your turn. Ask for advice while the hand is still unplayed.</p></div>
+      <div class="step"><div class="num">2</div><h3>Add the new tile</h3><p>The tile you drew, or the one another player just threw. Advice updates straight away.</p></div>
+      <div class="step"><div class="num">3</div><h3>Get the call</h3><p>One clear move: discard, pong, chow, kong, win or pass, with a one-line reason.</p></div>
+      <div class="step"><div class="num">4</div><h3>Watch for your tiles</h3><p>See which tiles finish a hand that pays, and how many are still out there.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="features" style="padding-top: 0">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Features</div>
+      <h2>Everything you'd ask an experienced player.</h2>
+      <p class="lede">The rules engine checks every legal move. Jev, TypeSafe AI's decision model, picks between them.</p>
+    </div>
+    <div class="features">
+      <article class="feat">
+        <div class="demo"><div class="call" aria-hidden="true"><span class="k">BEST MOVE</span><span class="w">Pong</span><span class="w">Discard</span><span class="w">Pass</span></div></div>
+        <div class="txt"><h3>One clear call</h3><p>No wall of options. One big answer, a short reason, and a button to apply it.</p></div>
+      </article>
+      <article class="feat">
+        <div class="demo"><div class="need" aria-hidden="true">
+          <div class="col"><span class="t lg m" id="needA"><b>2</b><i>萬</i><span class="n">4</span></span><span class="pays">1 tai</span></div>
+          <div class="col"><span class="t lg m" id="needB"><b>5</b><i>萬</i><span class="n">4</span></span><span class="pays">1 tai</span></div>
+        </div></div>
+        <div class="txt"><h3>The tiles you still need</h3><p>Every tile that finishes a hand worth paying, with a live count as they're thrown and claimed.</p></div>
+      </article>
+      <article class="feat">
+        <div class="demo"><div class="gone" aria-hidden="true">
+          <span class="t lg m" id="goneTile"><b>9</b><i>萬</i><span class="n" id="goneN">3</span></span>
+          <span class="msg" id="goneMsg">All gone · switch plans</span>
+        </div></div>
+        <div class="txt"><h3>Knows when tiles are gone</h3><p>If other players hold or threw what you need, it says so and steers you to a hand that can still win.</p></div>
+      </article>
+      <article class="feat">
+        <div class="demo"><div class="score" aria-hidden="true">
+          <div class="chips" id="chips"></div>
+          <div class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i><span id="tai">0 tai</span></div>
+        </div></div>
+        <div class="txt"><h3>Singapore scoring built in</h3><p>Dragons, winds, flushes, ping hu, flowers and animals, so you know what a win pays before you chase it.</p></div>
+      </article>
+      <article class="feat">
+        <div class="demo"><div class="jev" aria-hidden="true" id="jev">
+          <div class="row top"><span>Pong</span><div class="bar"><i data-w="82"></i></div><span class="pct">82%</span></div>
+          <div class="row"><span>Pass</span><div class="bar"><i data-w="15"></i></div><span class="pct">15%</span></div>
+          <div class="row"><span>Chow</span><div class="bar"><i data-w="3"></i></div><span class="pct">3%</span></div>
+        </div></div>
+        <div class="txt"><h3>Powered by Jev</h3><p>Jev weighs the engine's numbers and picks the move, with its confidence. No key? The engine decides on its own.</p></div>
+      </article>
+      <article class="feat">
+        <div class="demo"><div class="mini" aria-hidden="true">
+          <div class="p"><div class="c">Pong</div><div class="r"></div><div class="r"></div></div>
+          <div class="p"><div class="c">Discard</div><div class="r"></div><div class="r"></div></div>
+        </div></div>
+        <div class="txt"><h3>Made for your phone</h3><p>Big tap targets, light and dark mode, and undo for every mis-tap at a busy table.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="start" style="padding-top: 0">
+  <div class="wrap start">
+    <div class="head" style="margin-bottom: 0">
+      <div class="kicker">Get started</div>
+      <h2>Up and running in a minute.</h2>
+      <p class="lede">You need Python 3.10 or newer. Nothing else to install.</p>
+      <ul>
+        <li>Opens at <b>localhost:8000</b> in your browser.</li>
+        <li>Add <code>--host 0.0.0.0</code> to use it from your phone on the same Wi-Fi.</li>
+        <li>To let Jev choose moves, copy <code>.env.example</code> to <code>.env</code> and add your key.</li>
+      </ul>
+    </div>
+    <pre><span class="c"># get the code</span>
+git clone https://github.com/moobshake-git/mahjong-ai.git
+cd mahjong-ai
+
+<span class="c"># optional: turn Jev on</span>
+cp .env.example .env
+
+<span class="c"># start the coach</span>
+python -m mahjong_coach serve</pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <svg aria-hidden="true"><use href="#buddy-mark"/></svg>
+    <b style="color: var(--ink)">Turn Coach</b>
+    <span>· Singapore mahjong, one turn at a time. Built on Jev.</span>
+    <span style="margin-left: auto"><a href="https://github.com/moobshake-git/mahjong-ai">github.com/moobshake-git/mahjong-ai</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SUIT = { m: "萬", p: "筒", s: "索" };
+  const HON = { 7: "中" };
+  const $ = id => document.getElementById(id);
+  const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
+
+  function tile(code, cls = "") {
+    const el = document.createElement("span");
+    const [n, s] = code.split("");
+    el.className = `t ${s}${s === "z" ? " z" + n : ""} ${cls}`.trim();
+    el.innerHTML = s === "z" ? `<b>${HON[n]}</b>` : `<b>${n}</b><i>${SUIT[s]}</i>`;
+    el.dataset.code = code;
+    return el;
+  }
+
+  // ---- Phone demo: one full turn, looping ------------------------------------
+  const HAND = ["3m", "4m", "4p", "5p", "6p", "6s", "6s", "6s", "7s", "8s", "9s", "7z", "7z"];
+  const card = $("card"), rack = $("rack");
+
+  function setCard({ idle = false, win = false, k, tiles = [], verb = "", sub = "", why = "", watch = null, ctas = null }) {
+    card.className = "ph-card" + (idle ? " idle" : "") + (win ? " win" : "");
+    $("k").textContent = k;
+    const ct = $("cardTiles"); ct.replaceChildren(...tiles.map(([c, key]) => tile(c, "lg" + (key ? " key" : "") + " pop")));
+    $("verb").textContent = verb; $("verb").className = "verb" + (verb ? " fade-swap" : "");
+    $("sub").textContent = sub;
+    $("why").textContent = why;
+    $("rule").classList.toggle("hidden", idle);
+    const w = $("watch"); w.classList.toggle("hidden", !watch); w.replaceChildren();
+    if (watch) { w.append("Watch for"); watch.forEach(([c, n]) => { const t = tile(c, "pop"); const b = document.createElement("span"); b.className = "n"; b.textContent = n; t.appendChild(b); w.appendChild(t); }); }
+    const cs = $("ctas"); cs.classList.toggle("hidden", !ctas);
+    if (ctas) { $("alt").textContent = ctas[0]; $("go").textContent = ctas[1]; }
+  }
+  function say(text) { const b = $("bubble"); b.textContent = text; b.classList.remove("fade-swap"); void b.offsetWidth; b.classList.add("fade-swap"); }
+  function event(text, code) {
+    const e = $("event"); e.replaceChildren();
+    if (!text) return;
+    const chip = document.createElement("span"); chip.className = "chip fade-swap";
+    if (code) chip.appendChild(tile(code));
+    chip.append(text); e.appendChild(chip);
+  }
+  // Each called meld shows 3 tiles and takes 3 out of the hand.
+  function count() { $("count").textContent = `${rack.children.length} / ${13 - $("melds").children.length}`; }
+  async function press() { const g = $("go"); g.classList.add("press"); await sleep(180); g.classList.remove("press"); }
+  function confetti() {
+    if (reduced) return;
+    const box = $("confetti"); box.replaceChildren();
+    const colors = ["#C8281E", "#F6C945", "#2F7D3A", "#2B5FA8", "#F29A9A"];
+    for (let i = 0; i < 40; i++) {
+      const c = document.createElement("i");
+      c.style.left = Math.random() * 100 + "%"; c.style.background = colors[i % colors.length];
+      c.style.animationDelay = Math.random() * .5 + "s"; box.appendChild(c);
+    }
+  }
+  async function removeFromRack(code, n = 1) {
+    for (let i = 0; i < n; i++) {
+      const t = [...rack.children].find(x => x.dataset.code === code && !x.classList.contains("out"));
+      if (t) { t.classList.add("out"); setTimeout(() => t.remove(), reduced ? 0 : 450); }
+    }
+    await sleep(500); count();
+  }
+
+  async function turn() {
+    rack.replaceChildren(); $("melds").replaceChildren(); $("confetti").replaceChildren(); event(""); count();
+    setCard({ idle: true, k: "START HERE", sub: "Tap your 13 tiles" }); say("Hi! Let's play a turn.");
+    await sleep(1200);
+    for (const c of HAND) { rack.appendChild(tile(c, "pop")); count(); await sleep(140); }
+    setCard({ idle: true, k: "13 OF 13 TILES", sub: "Waiting for the next tile…" });
+    await sleep(900);
+
+    event("West threw", "7z"); say("Ooh, a 中!");
+    await sleep(900);
+    setCard({ k: "BEST MOVE", tiles: [["7z"], ["7z"], ["7z", true]], verb: "Pong", sub: "then discard 6 Bamboo",
+              why: "Now a win off anyone's discard pays.", ctas: ["Pass", "Pong 中"] });
+    say("Pong it!");
+    await sleep(2600); await press();
+
+    await removeFromRack("7z", 2);
+    $("melds").replaceChildren(...["7z", "7z", "7z"].map(c => tile(c, "pop"))); count();
+    setCard({ k: "BEST MOVE", tiles: [["6s", true]], verb: "Discard", sub: "6 Bamboo",
+              why: "Leaves you one tile from winning.", ctas: ["Options", "Discard 6 Bamboo"] });
+    event(""); say("Now let go of a 6 Bamboo.");
+    await sleep(2400); await press();
+
+    await removeFromRack("6s", 1);
+    setCard({ k: "READY", verb: "Ready", sub: "one tile from winning", watch: [["2m", 4], ["5m", 4]] });
+    say("Watch for 2 or 5 Characters!");
+    await sleep(2600);
+
+    event("East threw", "5m"); say("That's ours!");
+    await sleep(900);
+    setCard({ win: true, k: "BEST MOVE", tiles: [["5m", true]], verb: "Win!", sub: "1 tai · Red dragon pung",
+              why: "East pays 2, the others pay 1.", ctas: ["Pass", "Win"] });
+    confetti(); say("We win!");
+    await sleep(3400);
+  }
+
+  async function loop() {
+    if (reduced) {
+      // Show one representative moment without motion.
+      HAND.forEach(c => rack.appendChild(tile(c))); count();
+      event("West threw", "7z");
+      setCard({ k: "BEST MOVE", tiles: [["7z"], ["7z"], ["7z", true]], verb: "Pong", sub: "then discard 6 Bamboo",
+                why: "Now a win off anyone's discard pays.", ctas: ["Pass", "Pong 中"] });
+      say("Pong it!");
+      return;
+    }
+    for (;;) await turn();
+  }
+  loop();
+
+  // ---- Feature card animations ----------------------------------------------
+  // Tiles you still need: counts tick down as tiles get thrown, then reset.
+  (async function needs() {
+    if (reduced) return;
+    const a = $("needA").querySelector(".n"), b = $("needB").querySelector(".n");
+    for (;;) {
+      a.textContent = 4; b.textContent = 4; await sleep(1800);
+      a.textContent = 3; await sleep(1800);
+      b.textContent = 3; await sleep(1800);
+      a.textContent = 2; await sleep(2400);
+    }
+  })();
+
+  // Gone: a tile's count drops to zero, then the warning appears.
+  (async function gone() {
+    const t = $("goneTile"), n = $("goneN"), m = $("goneMsg");
+    if (reduced) { n.textContent = 0; t.classList.add("dead"); m.classList.add("show"); return; }
+    for (;;) {
+      t.classList.remove("dead"); m.classList.remove("show");
+      for (const v of [3, 2, 1]) { n.textContent = v; await sleep(1000); }
+      n.textContent = 0; t.classList.add("dead"); await sleep(500);
+      m.classList.add("show"); await sleep(2600);
+    }
+  })();
+
+  // Scoring: patterns pop in and the tai meter fills.
+  (async function scoring() {
+    const chips = $("chips"), bars = [...$("meter").querySelectorAll("i")], tai = $("tai");
+    const items = [["Red dragon pung", 1], ["Seat flower", 1], ["Cat", 1]];
+    const show = k => {
+      chips.replaceChildren(...items.slice(0, k).map(([n, v]) => { const c = document.createElement("span"); c.className = "chip pop"; c.innerHTML = `${n} <b>+${v}</b>`; return c; }));
+      bars.forEach((b, i) => b.classList.toggle("on", i < k)); tai.textContent = `${k} tai`;
+    };
+    if (reduced) { show(3); return; }
+    for (;;) { for (let k = 0; k <= 3; k++) { show(k); await sleep(k ? 1100 : 700); } await sleep(1800); }
+  })();
+
+  // Jev: probability bars grow, hold, reset.
+  (async function jev() {
+    const bars = [...$("jev").querySelectorAll(".bar i")];
+    if (reduced) { bars.forEach(b => b.style.width = b.dataset.w + "%"); return; }
+    for (;;) {
+      bars.forEach(b => b.style.width = "0"); await sleep(700);
+      bars.forEach(b => b.style.width = b.dataset.w + "%"); await sleep(3600);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
