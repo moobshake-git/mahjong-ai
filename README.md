@@ -86,6 +86,38 @@ West, North, White, Green, Red (or the words `E S W N Wh G R`). Bonus tiles: `f1
 `s1-s4`, `cat rat rooster centipede`. Add `--no-jev` to use only the engine, or `--json`
 for the raw result.
 
+## Camera (in progress)
+
+The goal is for the coach to read the table from one phone camera mounted just behind and above
+your shoulder: your own tiles, what you draw, and what other players throw. The first version
+runs without a camera:
+
+- **Play demo game** (Camera panel): a simulated camera plays a short scripted game. It draws
+  what a tile detector would report, including the problems a real camera has: an arm crossing
+  the table, a tile misread for one frame, far discards read with low confidence. The coach
+  fills itself in as events are recognised, and Jev gives advice at each step.
+- **Photo of my hand**: take or upload one photo, and Claude lists your tiles for you to confirm
+  before they're used. Optional: run `pip install anthropic` and add `ANTHROPIC_API_KEY` to `.env`
+  (and optionally `VISION_MODEL`, default `claude-opus-5-5`). The photo is sent to Anthropic's API.
+
+How it fits together (`mahjong_coach/vision/`):
+
+```
+detector (simulator now; trained model or Claude later)
+   -> per-frame detections: tile, zone (hand/discard/meld/bonus), seat, confidence, box
+   -> tracker.py: accepts a view only when it appears in 5 of the last 7 frames with no hands
+      over the table, checks it (hand size, at most 4 of a tile), then works out what changed
+   -> events (drew 3s, the player on your left threw 9p, ...) + the same table state you'd tap in
+   -> /api/advise -> rules engine + Jev
+```
+
+Endpoints: `GET /api/vision/demo?seed=7`, `POST /api/vision/frame` (`{session, frame}`),
+`POST /api/vision/reset`, `POST /api/vision/photo` (raw image body).
+
+Next steps: collect photos of your own tile set, use photo mode to pre-label them, train a small
+detector (e.g. RF-DETR, Apache-2.0) that runs on the laptop, and feed its detections into the same
+`/api/vision/frame` endpoint. Live video from a phone needs the page served over HTTPS.
+
 ## Scoring (Singapore)
 
 The defaults are a 1 tai minimum and a 5 tai cap. Payouts double per tai: on a discard win the
