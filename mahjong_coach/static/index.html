@@ -3,64 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mahjong Turn Coach</title>
+<title>Turn Coach</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Noto+Serif+SC:wght@600;900&display=swap">
 <style>
+  /* 中 Zhong theme: vermilion on ivory, one clear call. */
   :root {
-    --bg: #f6f4ef; --panel: #ffffff; --ink: #1f2328; --muted: #6b6f76; --line: #dedbd2;
-    --tile: #fffdf7; --tile-edge: #cfc8b6; --accent: #1f6f5c; --accent-ink: #ffffff;
-    --warn-bg: #fff4e0; --warn-ink: #7a4b00; --good: #1f6f5c; --bad: #a33a2b;
-    --m: #b4372a; --p: #2b5fa8; --s: #2f7d3a; --z: #2b2b2b;
-    --sel: #e7f2ee;
+    --bg: #F7F1E6; --panel: #FFFFFF; --ink: #1A1714; --muted: #5E574E; --line: #D9CFBE;
+    --tile: #FFFDF7; --tile-edge: #CFC8B6; --accent: #C8281E; --accent-deep: #8F1B14; --accent-ink: #FFFFFF;
+    --warn-bg: #FBE7D3; --warn-ink: #7A3A0A; --good: #1E6B4A; --bad: #B3261E;
+    --m: #B4372A; --p: #2B5FA8; --s: #2F7D3A; --z: #1A1714; --sel: #FBEDEA;
+    --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --han: "Noto Serif SC", "Songti SC", "SimSun", serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #16181b; --panel: #1f2226; --ink: #e8e6e1; --muted: #9aa0a6; --line: #34383e;
-      --tile: #2a2e33; --tile-edge: #454a51; --accent: #4fb397; --accent-ink: #0d1512;
-      --warn-bg: #3a2c12; --warn-ink: #f3c77a; --good: #6fd0b2; --bad: #ef8a7a;
-      --m: #ef7f71; --p: #7fa8ea; --s: #79c486; --z: #e8e6e1; --sel: #233a33;
+      --bg: #15110E; --panel: #211B17; --ink: #F3ECE2; --muted: #B3A99C; --line: #3A322B;
+      --tile: #2A231E; --tile-edge: #4A4038; --accent: #E2554A; --accent-deep: #7A1A13; --accent-ink: #15110E;
+      --warn-bg: #3A2412; --warn-ink: #F5C08A; --good: #7FD1A8; --bad: #F08A80;
+      --m: #F08C7E; --p: #8DB4F0; --s: #86C98F; --z: #F3ECE2; --sel: #3A1F1B;
     }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 900px; margin: 0 auto; padding: 12px 16px 48px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-  h1 { font-size: 20px; margin: 4px 0; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--sans); }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+  header { display: flex; align-items: center; gap: 10px; }
+  header img { width: 34px; height: 42px; display: block; }
+  header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+  header .grow { flex: 1; }
+  .pill { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
   .muted { color: var(--muted); font-size: 13px; }
-  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+  h2 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 10px; }
   .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .settings label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
-  select, input[type=number] { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
-  input[type=number] { width: 52px; }
+  label { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  select, input[type=number] { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-height: 36px; }
+  input[type=number] { width: 60px; }
+  input[type=checkbox] { accent-color: var(--accent); width: 18px; height: 18px; }
   button { font: inherit; cursor: pointer; }
-  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 6px 10px; }
+  .btn { border: 2px solid var(--ink); background: transparent; color: var(--ink); border-radius: 12px; padding: 8px 14px; font-weight: 700; min-height: 44px; }
   .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.quiet { border: 1px solid var(--line); font-weight: 600; min-height: 36px; padding: 6px 12px; }
   .btn:disabled { opacity: .4; cursor: default; }
-  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
-  .tab { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 12px; }
-  .tab[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tab { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 7px 14px; font-weight: 600; min-height: 36px; }
+  .tab[aria-pressed=true] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
   .tile { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
     width: 40px; height: 54px; border-radius: 6px; background: var(--tile); border: 1px solid var(--tile-edge);
-    box-shadow: 0 2px 0 var(--tile-edge); padding: 0; color: var(--z); line-height: 1; }
-  .tile b { font-size: 19px; }
-  .tile i { font-style: normal; font-size: 12px; margin-top: 3px; }
+    box-shadow: 0 2px 0 var(--tile-edge); padding: 0; color: var(--z); line-height: 1; font-family: var(--sans); }
+  .tile b { font-size: 19px; font-weight: 800; }
+  .tile i { font-style: normal; font-size: 12px; margin-top: 3px; font-family: var(--han); }
+  .tile.z b { font-family: var(--han); font-weight: 900; }
   .tile.m { color: var(--m); } .tile.p { color: var(--p); } .tile.s { color: var(--s); }
+  .tile.z7 { color: var(--accent); } .tile.z6 { color: var(--s); } .tile.z5 { color: var(--p); }
   .tile.small { width: 30px; height: 40px; } .tile.small b { font-size: 14px; } .tile.small i { font-size: 10px; }
+  .tile.big { width: 52px; height: 70px; border-radius: 8px; box-shadow: 0 3px 0 var(--tile-edge); }
+  .tile.big b { font-size: 30px; } .tile.big i { font-size: 15px; }
+  .tile.big.key { border: 2px solid var(--accent); box-shadow: 0 3px 0 var(--accent-deep); }
   .tile svg.pips { width: 78%; height: 82%; }
-  .tile .idx { position: absolute; top: 1px; left: 3px; font-size: 9px; font-weight: 700; line-height: 1; color: var(--muted); }
-  .tile.small .idx { font-size: 8px; left: 2px; }
-  .tile .left { position: absolute; top: -6px; right: -6px; background: var(--ink); color: var(--bg); font-size: 10px;
-    border-radius: 999px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; }
+  .tile .idx { position: absolute; top: 1px; left: 3px; font-size: 9px; font-weight: 700; line-height: 1; color: var(--muted); font-family: var(--sans); }
+  .tile.small .idx { font-size: 8px; left: 2px; } .tile.big .idx { font-size: 11px; top: 3px; left: 4px; }
+  .tile .left { position: absolute; top: -7px; right: -8px; background: var(--ink); color: var(--bg); font-size: 10px; font-weight: 700;
+    border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; font-family: var(--sans); }
   .tile.dead { opacity: .35; }
   .tile:disabled { opacity: .3; cursor: default; }
-  .tile.hl { outline: 3px solid var(--accent); outline-offset: 1px; }
-  .palette .suit { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .tile.hl { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .palette .suit { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
   .hand { min-height: 58px; gap: 4px; }
   .slot { display: flex; align-items: center; gap: 6px; }
   .meld { display: inline-flex; gap: 1px; padding: 3px; border: 1px dashed var(--line); border-radius: 8px; align-items: center; }
-  .meld .x { border: 0; background: none; color: var(--muted); padding: 0 4px; }
+  .meld .x { border: 0; background: none; color: var(--muted); padding: 0 6px; min-height: 32px; }
+
   .bonus-pick { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: none;
     color: var(--muted); font-size: 11px; padding: 2px; width: 62px; hyphens: manual; text-align: center; }
   .bonus-pick:disabled { opacity: .35; cursor: default; }
@@ -73,21 +90,39 @@
     font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 5px; }
   .btile.small { width: 34px; height: 44px; } .btile.small svg { width: 26px; height: 26px; }
   .bonus-group { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-  .bonus-group h3 { width: 100%; margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); }
-  .headline { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
-  .warn { background: var(--warn-bg); color: var(--warn-ink); padding: 8px 10px; border-radius: 8px; margin: 6px 0; font-size: 14px; }
-  .opt { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
-  .opt.rec { border-color: var(--accent); background: var(--sel); }
+  .bonus-group h3 { width: 100%; margin: 4px 0 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+
+  /* The best-move card: the centre of the screen. */
+  .hero { background: var(--panel); border: 3px solid var(--accent); border-radius: 24px; box-shadow: 0 6px 0 var(--accent-deep);
+    padding: 22px 18px 18px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+  .hero.idle { border: 1px solid var(--line); box-shadow: none; }
+  .hero .kicker { font-size: 12px; font-weight: 800; letter-spacing: .16em; color: var(--accent); }
+  .hero.idle .kicker { color: var(--muted); }
+  .hero .tiles { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+  .hero .verb { margin: 0; font-size: 60px; line-height: 1; font-weight: 900; letter-spacing: -0.03em; color: var(--ink); text-transform: none; }
+  .hero .sub { margin: 0; font-size: 17px; font-weight: 600; }
+  .hero .rule { width: 48px; height: 3px; background: var(--accent); border-radius: 2px; }
+  .hero .why { margin: 0; color: var(--muted); max-width: 36ch; font-size: 15px; }
+  .hero .badge { margin-top: 2px; }
+  .watch { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 12px; margin-top: 4px; }
+  .watch .label { font-size: 13px; color: var(--muted); }
+  .cta { display: flex; gap: 10px; width: 100%; margin-top: 6px; }
+  .cta .btn { flex: 1 1 0; min-height: 54px; border-radius: 14px; font-size: 16px; }
+  .cta .btn.primary { flex: 2 1 0; font-size: 17px; font-weight: 800; }
+  .warn { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 12px; border-radius: 12px; font-size: 14px; text-align: left; width: 100%; }
+  .others { width: 100%; text-align: left; margin-top: 4px; }
+  .opt { border-top: 1px solid var(--line); padding: 10px 0; display: flex; flex-direction: column; gap: 6px; }
   .opt-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-  .opt-title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .needs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .need { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-  .need .pay { color: var(--good); font-weight: 600; } .need .nopay { color: var(--bad); }
-  .badge { font-size: 11px; border-radius: 999px; padding: 2px 8px; border: 1px solid var(--line); color: var(--muted); }
+  .opt-title { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .needs { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+  .need { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .need .pay { color: var(--good); font-weight: 700; } .need .nopay { color: var(--bad); }
+  .badge { font-size: 12px; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line); color: var(--muted); }
   .badge.jev { border-color: var(--accent); color: var(--accent); }
-  .err { color: var(--bad); }
-  .count { font-variant-numeric: tabular-nums; }
-  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .err { color: var(--bad); margin: 0; }
+  .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  details > summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; min-height: 32px; display: flex; align-items: center; }
+  .settings .row { gap: 10px 14px; margin-top: 10px; }
   .cam-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
   .cam-view { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #163a2d; }
   .cam-view svg { width: 100%; height: 100%; display: block; }
@@ -111,31 +146,28 @@
   .file-btn { position: relative; overflow: hidden; }
   .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   @media (max-width: 520px) {
-    main { padding: 10px 12px 40px; } section { padding: 10px; }
+    main { padding: 12px 12px 40px; } section { padding: 12px; }
     .tile { width: 30px; height: 44px; } .tile b { font-size: 15px; } .tile i { font-size: 10px; }
+    .tile.big { width: 46px; height: 62px; } .tile.big b { font-size: 26px; }
     .palette .suit { gap: 3px; }
+    .hero .verb { font-size: 52px; }
+    header .pill { display: none; }
   }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Mahjong Turn Coach</h1>
-    <span class="muted" id="engine">Singapore rules</span>
+    <img src="/logo.svg" alt="" width="34" height="42">
+    <h1>Turn Coach</h1>
+    <span class="grow"></span>
+    <span class="pill" id="engine">Singapore rules</span>
   </header>
 
-  <section class="settings">
-    <div class="row">
-      <label>Seat <select id="seat"><option>E</option><option>S</option><option>W</option><option>N</option></select></label>
-      <label>Prevailing <select id="round"><option>E</option><option>S</option><option>W</option><option>N</option></select></label>
-      <label>Min tai <input id="minTai" type="number" min="0" max="5" value="1"></label>
-      <label>Cap <input id="maxTai" type="number" min="1" max="13" value="5"></label>
-      <label><input id="useJev" type="checkbox" checked> Ask Jev</label>
-      <span style="flex:1"></span>
-      <button class="btn" id="undo" title="Undo last change">Undo</button>
-      <button class="btn" id="reset">New hand</button>
-    </div>
-  </section>
+  <div class="hero idle" id="advice" aria-live="polite">
+    <div class="kicker">START HERE</div>
+    <p class="why">Tap your 13 tiles below.</p>
+  </div>
 
   <section id="camera" aria-label="Camera">
     <h2>Camera</h2>
@@ -162,10 +194,10 @@
   <section>
     <h2>Your tiles <span class="count" id="handCount"></span></h2>
     <div class="row hand" id="hand"></div>
-    <div class="row" style="margin-top:8px; gap:14px">
+    <div class="row" style="margin-top:10px; gap:14px">
       <div class="slot"><span class="muted">Drew</span><span id="drawn"></span></div>
       <div class="slot"><span class="muted">Thrown</span><span id="thrown"></span>
-        <label class="muted"><input type="checkbox" id="fromLeft"> from player on my left</label></div>
+        <label><input type="checkbox" id="fromLeft"> from player on my left</label></div>
     </div>
     <div class="row" id="melds" style="margin-top:8px"></div>
     <div class="row" id="bonus" style="margin-top:8px"></div>
@@ -186,9 +218,20 @@
       <div class="row" id="seen" style="margin-top:6px"></div></details>
   </section>
 
-  <section aria-live="polite">
-    <h2>Advice</h2>
-    <div id="advice"><p class="muted">Enter your 13 tiles to start.</p></div>
+  <section class="settings">
+    <div class="row" style="margin-top:0">
+      <h2 style="margin:0">Table</h2>
+      <span class="grow" style="flex:1"></span>
+      <button class="btn quiet" id="undo" title="Undo last change">Undo</button>
+      <button class="btn quiet" id="reset">New hand</button>
+    </div>
+    <div class="row">
+      <label>Seat <select id="seat"><option>E</option><option>S</option><option>W</option><option>N</option></select></label>
+      <label>Prevailing <select id="round"><option>E</option><option>S</option><option>W</option><option>N</option></select></label>
+      <label>Min tai <input id="minTai" type="number" min="0" max="5" value="1"></label>
+      <label>Cap <input id="maxTai" type="number" min="1" max="13" value="5"></label>
+      <label><input id="useJev" type="checkbox" checked> Ask Jev</label>
+    </div>
   </section>
 </main>
 
@@ -353,9 +396,9 @@ function known() {
 }
 const baseSize = () => 13 - 3 * state.melds.length;
 
-function tileEl(t, { small = false, left = null, onClick = null, title = null, hl = false } = {}) {
+function tileEl(t, { small = false, big = false, key = false, left = null, onClick = null, title = null, hl = false } = {}) {
   const el = document.createElement(onClick ? "button" : "span");
-  el.className = `tile ${t[1]}${small ? " small" : ""}${hl ? " hl" : ""}`;
+  el.className = `tile ${t[1]}${t[1] === "z" ? " z" + t[0] : ""}${small ? " small" : ""}${big ? " big" : ""}${key ? " key" : ""}${hl ? " hl" : ""}`;
   el.innerHTML = t[1] === "z" ? `<b>${HONORS[+t[0] - 1]}</b>`
     : t[1] === "m" ? `<b>${t[0]}</b><i>${SUITS[t[1]]}</i>`
     : `<svg class="pips" viewBox="0 0 30 40" aria-hidden="true">${suitArt(t)}</svg><span class="idx">${t[0]}</span>`;
@@ -457,7 +500,10 @@ async function fetchAdvice() {
   const box = document.getElementById("advice");
   const n = state.hand.length + (state.drawn ? 1 : 0);
   if (state.hand.length < baseSize()) {
-    box.innerHTML = `<p class="muted">Enter your ${baseSize()} tiles (${state.hand.length} so far). Tap a tile to remove it.</p>`;
+    seq++;
+    idle(state.hand.length ? `${state.hand.length} OF ${baseSize()} TILES` : "START HERE",
+         state.hand.length ? "Keep tapping your tiles below. Tap one in your hand to take it back."
+                           : `Tap your ${baseSize()} tiles below.`);
     return;
   }
   const payload = {
@@ -473,13 +519,25 @@ async function fetchAdvice() {
     const data = await res.json();
     if (my !== seq) return;
     box.style.opacity = 1;
-    if (!res.ok) { box.innerHTML = ""; const p = document.createElement("p"); p.className = "err"; p.textContent = data.error; box.appendChild(p); return; }
+    if (!res.ok) { idle("CHECK YOUR TILES", data.error, true); return; }
     renderAdvice(data);
   } catch (e) {
     if (my !== seq) return;
     box.style.opacity = 1;
-    box.innerHTML = `<p class="err">Can't reach the coach server. Is it still running?</p>`;
+    idle("OFFLINE", "Can't reach the coach server. Is it still running?", true);
   }
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function idle(kicker, text, isError = false) {
+  const box = document.getElementById("advice");
+  box.className = "hero idle"; box.replaceChildren(el("div", "kicker", kicker), el("p", isError ? "err" : "why", text));
 }
 
 function needsEl(needs) {
@@ -499,57 +557,118 @@ function needsEl(needs) {
   return wrap;
 }
 
-function actionButton(o) {
-  const b = document.createElement("button"); b.className = "btn" + (o.recommended ? " primary" : "");
+const VERB = { discard: "Discard", pass: "Pass", win: "Win!", pong: "Pong", kong: "Kong", chow: "Chow" };
+// Short name for a tile in button text: the character for honours, words for suited tiles.
+const tileWord = t => t[1] === "z" ? HONORS[+t[0] - 1] : label(t);
+
+function actionButton(o, { primary = false, quiet = false } = {}) {
+  const b = el("button", "btn" + (primary ? " primary" : "") + (quiet ? " quiet" : ""));
+  b.type = "button";
   switch (o.action) {
-    case "discard": b.textContent = `Discard ${o.tile}`; b.onclick = () => change(() => {
+    case "discard": b.textContent = `Discard ${tileWord(o.tile)}`; b.onclick = () => change(() => {
         const all = [...state.hand, ...(state.drawn ? [state.drawn] : [])];
         all.splice(all.indexOf(o.tile), 1); state.hand = all; state.drawn = null; state.seen.push(o.tile); state.target = "thrown"; }); break;
     case "pass": b.textContent = "Pass"; b.onclick = () => change(() => { state.seen.push(state.thrown); state.thrown = null; }); break;
     case "win": b.textContent = "Won! New hand"; b.onclick = () => change(() => { state = blank(); }); break;
-    default: b.textContent = o.action === "chow" ? `Chow ${o.meld.tile[0]}${+o.meld.tile[0]+1}${+o.meld.tile[0]+2}${o.meld.tile[1]}` : `${o.action[0].toUpperCase()}${o.action.slice(1)} ${o.tile}`;
+    default: {
+      const m = o.meld.tile;
+      b.textContent = o.action === "chow" ? `Chow ${m[0]}${+m[0] + 1}${+m[0] + 2} ${SUIT_NAMES[m[1]]}` : `${VERB[o.action]} ${tileWord(o.tile)}`;
       b.onclick = () => change(() => { o.uses.forEach(t => state.hand.splice(state.hand.indexOf(t), 1));
         state.melds.push({ kind: o.meld.kind, tile: o.meld.tile }); state.thrown = null; state.target = o.action === "kong" ? "drawn" : "hand"; });
+    }
   }
   return b;
 }
 
+// Tiles shown big in the best-move card; the one the move is about gets the red edge.
+function heroTiles(o, r) {
+  switch (o.action) {
+    case "discard": return [[o.tile, true]];
+    case "pass": return [[o.tile, false]];
+    case "pong": return [[o.tile, false], [o.tile, false], [o.tile, true]];
+    case "kong": return [[o.tile, false], [o.tile, false], [o.tile, false], [o.tile, true]];
+    case "chow": return meldTiles(o.meld).map(t => [t, t === o.tile]);
+    case "win": { const t = r.thrown || state.drawn; return t ? [[t, true]] : []; }
+  }
+  return [];
+}
+
+function heroSub(o) {
+  switch (o.action) {
+    case "discard": return o.label;
+    case "pong": case "chow": return `then discard ${o.then_discard_label}`;
+    case "kong": return "then draw a replacement tile";
+    case "pass": return `let the ${tileWord(o.tile)} go`;
+    case "win": return `${o.score.tai} tai${o.score.meets_minimum ? "" : " · below the minimum"}`;
+  }
+  return "";
+}
+
+function decidedBadge(r) {
+  if (!r.decided_by) return null;
+  const jev = r.decided_by.source === "jev";
+  return el("span", "badge" + (jev ? " jev" : ""), jev
+    ? `Picked by Jev${r.decided_by.confidence != null ? ` · ${Math.round(r.decided_by.confidence * 100)}% sure` : ""}${r.decided_by.agrees_with_engine ? "" : " · engine disagrees"}`
+    : r.decided_by.note);
+}
+
+function watchEl(needs, text) {
+  const w = el("div", "watch");
+  w.appendChild(el("span", "label", text));
+  w.appendChild(needsEl(needs.slice(0, 8)));
+  return w;
+}
+
 function renderAdvice(r) {
   showCamCoach(r);
-  const box = document.getElementById("advice"); box.replaceChildren();
-  const h = document.createElement("p"); h.className = "headline"; h.textContent = r.headline; box.appendChild(h);
-  if (r.decided_by) {
-    const b = document.createElement("span"); b.className = "badge" + (r.decided_by.source === "jev" ? " jev" : "");
-    b.textContent = r.decided_by.source === "jev"
-      ? `Picked by Jev${r.decided_by.confidence != null ? ` · ${Math.round(r.decided_by.confidence * 100)}% confident` : ""}${r.decided_by.agrees_with_engine ? "" : " · engine disagrees"}`
-      : r.decided_by.note;
-    box.appendChild(b);
-  }
-  (r.warnings || []).forEach(w => { const d = document.createElement("div"); d.className = "warn"; d.textContent = w; box.appendChild(d); });
+  const box = document.getElementById("advice");
+  box.className = "hero"; box.replaceChildren();
+  const add = (...xs) => xs.forEach(x => x && box.appendChild(x));
+
   if (r.mode === "waiting") {
-    const p = document.createElement("p"); p.className = "muted"; p.textContent = "Watch for these tiles on other players' turns:"; box.appendChild(p);
-    box.appendChild(needsEl(r.needs));
+    add(el("div", "kicker", r.shanten === 0 ? "READY" : "BUILDING"),
+        el("h2", "verb", r.shanten === 0 ? "Ready" : `${r.shanten} away`),
+        el("p", "sub", r.shanten === 0 ? "one tile from winning" : `${r.shanten === 1 ? "one step" : r.shanten + " steps"} from a ready hand`),
+        el("div", "rule"), el("p", "why", r.summary));
+    if (r.needs.length) add(watchEl(r.needs, "Watch for"));
+    (r.warnings || []).forEach(w => add(el("div", "warn", w)));
     return;
   }
-  const shown = r.options.slice(0, 5);
-  shown.forEach(o => {
-    const d = document.createElement("div"); d.className = "opt" + (o.recommended ? " rec" : "");
-    const top = document.createElement("div"); top.className = "opt-top";
-    const title = document.createElement("div"); title.className = "opt-title";
-    if (o.tile && o.action !== "win") title.appendChild(tileEl(o.tile, { small: true }));
-    const t = document.createElement("span");
-    t.textContent = (o.action === "discard" ? `Discard ${o.label}` : o.action === "win" ? "Win" : o.action === "pass" ? "Pass" : `${o.action[0].toUpperCase()}${o.action.slice(1)}`)
-      + (o.recommended ? " · best" : "") + (o.engine_pick && !o.recommended ? " · engine's pick" : "");
-    title.appendChild(t);
-    if (o.jev_probability != null) { const b = document.createElement("span"); b.className = "badge"; b.textContent = `Jev ${Math.round(o.jev_probability * 100)}%`; title.appendChild(b); }
-    top.appendChild(title); top.appendChild(actionButton(o)); d.appendChild(top);
-    const s = document.createElement("div"); s.className = "muted"; s.textContent = o.summary; d.appendChild(s);
-    if (o.reason && o.recommended) { const rs = document.createElement("div"); rs.textContent = o.reason; d.appendChild(rs); }
-    if (o.score) { const sc = document.createElement("div"); sc.className = "muted"; sc.textContent = o.score.items.map(i => `${i.name} ${i.tai}`).join(" · "); d.appendChild(sc); }
-    if (o.needs && o.needs.length) d.appendChild(needsEl(o.needs.slice(0, 10)));
-    box.appendChild(d);
-  });
-  if (r.options.length > shown.length) { const m = document.createElement("p"); m.className = "muted"; m.textContent = `${r.options.length - shown.length} weaker options hidden.`; box.appendChild(m); }
+
+  const best = r.options.find(o => o.recommended) || r.options[0];
+  add(el("div", "kicker", "BEST MOVE"));
+  const tiles = el("div", "tiles");
+  heroTiles(best, r).forEach(([t, key]) => tiles.appendChild(tileEl(t, { big: true, key })));
+  add(tiles, el("h2", "verb", VERB[best.action]), el("p", "sub", heroSub(best)), el("div", "rule"));
+  add(el("p", "why", best.reason && best.action !== "pass" ? best.reason : best.summary));
+  if (best.score) add(el("p", "muted", best.score.items.map(i => `${i.name} ${i.tai}`).join(" · ")));
+  if (best.needs && best.needs.length) add(watchEl(best.needs, best.action === "pass" ? "Still watching for" : "Then watch for"));
+  (r.warnings || []).forEach(w => add(el("div", "warn", w)));
+  add(decidedBadge(r));
+
+  const others = r.options.filter(o => o !== best);
+  const alt = r.mode === "call" ? (others.find(o => o.action === "pass") || others[0]) : others[0];
+  const cta = el("div", "cta");
+  if (alt) cta.appendChild(actionButton(alt));
+  cta.appendChild(actionButton(best, { primary: true }));
+  add(cta);
+
+  if (others.length) {
+    const d = el("details", "others");
+    d.appendChild(el("summary", null, `Other options (${others.length})`));
+    others.slice(0, 6).forEach(o => {
+      const row = el("div", "opt"), top = el("div", "opt-top"), title = el("div", "opt-title");
+      if (o.tile && o.action !== "win") title.appendChild(tileEl(o.tile, { small: true }));
+      title.appendChild(el("span", null, (o.action === "discard" ? `Discard ${o.label}` : VERB[o.action])
+        + (o.engine_pick ? " · engine's pick" : "")));
+      if (o.jev_probability != null) title.appendChild(el("span", "badge", `Jev ${Math.round(o.jev_probability * 100)}%`));
+      top.append(title, actionButton(o, { quiet: true }));
+      row.append(top, el("div", "muted", o.summary));
+      if (o.needs && o.needs.length) row.appendChild(needsEl(o.needs.slice(0, 8)));
+      d.appendChild(row);
+    });
+    add(d);
+  }
 }
 
 // ---------------- Camera (simulated feed + photo mode) ----------------
@@ -763,9 +882,7 @@ document.getElementById("useJev").addEventListener("change", e => { settings.use
 document.getElementById("undo").addEventListener("click", () => { if (history.length) { state = JSON.parse(history.pop()); render(); } });
 document.getElementById("reset").addEventListener("click", () => change(() => { state = blank(); }));
 fetch("/api/status").then(r => r.json()).then(s => {
-  document.getElementById("engine").textContent = s.jev_configured ? "Singapore rules · Jev on" : "Singapore rules · Jev off (no JEV_API_KEY)";
-  const pb = document.getElementById("photoBtn");
-  if (!s.photo_mode) { pb.title = "Photo mode is off: run  pip install anthropic  and add ANTHROPIC_API_KEY to .env"; pb.style.opacity = .5; }
+  document.getElementById("engine").textContent = s.jev_configured ? "Singapore rules · Jev on" : "Singapore rules · Jev off";
 }).catch(() => {});
 render();
 </script>
