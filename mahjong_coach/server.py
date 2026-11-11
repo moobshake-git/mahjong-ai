@@ -60,8 +60,10 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         if url.path in ("/", "/index.html"):
             self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
-        elif url.path in ("/logo.svg", "/favicon.svg", "/favicon.ico"):
+        elif url.path == "/logo.svg":
             self._send(200, (STATIC / "logo.svg").read_bytes(), "image/svg+xml")
+        elif url.path in ("/favicon.svg", "/favicon.ico"):
+            self._send(200, (STATIC / "favicon.svg").read_bytes(), "image/svg+xml")
         elif url.path == "/api/status":
             self._json(200, {"jev_configured": jev.is_configured(),
                              "camera_reader": reader.sdk_available(), "camera_model": reader.model()})
