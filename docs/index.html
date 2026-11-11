@@ -64,6 +64,9 @@
   .t.lg { width: 34px; height: 46px; border-radius: 6px; box-shadow: 0 3px 0 var(--tile-edge); }
   .t.lg b { font-size: 19px; } .t.lg i { font-size: 10px; }
   .t.key { border: 2px solid #C8281E; box-shadow: 0 3px 0 #8F1B14; }
+  .t svg.pips { width: 80%; height: 84%; }
+  .t .idx { display: none; }
+  .t.lg .idx { display: block; position: absolute; top: 2px; left: 3px; font-size: 8px; font-weight: 800; line-height: 1; color: #5E574E; }
   .t .n { position: absolute; top: -7px; right: -8px; background: #1A1714; color: #F7F1E6; font-size: 10px; font-weight: 800;
     border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; font-family: var(--sans); }
   .pop { animation: pop .35s cubic-bezier(.2, 1.6, .4, 1) both; }
@@ -433,11 +436,66 @@ python -m mahjong_coach serve</pre>
   const $ = id => document.getElementById(id);
   const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
 
+  // Same tile faces as the app (mahjong_coach/static/index.html); landing tiles are always ivory.
+  // Tile faces for Dots and Bamboo, drawn like real tiles: dot patterns, bamboo sticks, and a bird on 1 Bamboo.
+  // Drawn on a 30x40 grid. Colours come from CSS variables on the page (light/dark aware) or fixed ones for the camera.
+  const PIP_VARS = { b: "var(--p)", r: "var(--m)", g: "var(--s)", face: "var(--tile)" };
+  const PIP_FIXED = { b: "#2b5fa8", r: "#b4372a", g: "#2f7d3a", face: "#fffdf7" };
+  const DOTS = {
+    2: [[15, 11, 6.5, "g"], [15, 29, 6.5, "b"]],
+    3: [[7, 8, 5.2, "b"], [15, 20, 5.2, "r"], [23, 32, 5.2, "g"]],
+    4: [[8.5, 11, 5.6, "b"], [21.5, 11, 5.6, "g"], [8.5, 29, 5.6, "g"], [21.5, 29, 5.6, "b"]],
+    5: [[7.5, 9, 5, "b"], [22.5, 9, 5, "g"], [15, 20, 5, "r"], [7.5, 31, 5, "g"], [22.5, 31, 5, "b"]],
+    6: [[9, 8, 4.6, "g"], [21, 8, 4.6, "g"], [9, 20, 4.6, "r"], [21, 20, 4.6, "r"], [9, 32, 4.6, "r"], [21, 32, 4.6, "r"]],
+    7: [[6, 6, 3.7, "g"], [15, 10.5, 3.7, "g"], [24, 15, 3.7, "g"],
+        [9, 24, 4.1, "r"], [21, 24, 4.1, "r"], [9, 34, 4.1, "r"], [21, 34, 4.1, "r"]],
+    8: [7, 15.7, 24.3, 33].flatMap(y => [[9, y, 3.9, "b"], [21, y, 3.9, "b"]]),
+    9: [[9, "b"], [20, "r"], [31, "g"]].flatMap(([y, c]) => [7, 15, 23].map(x => [x, y, 3.9, c])),
+  };
+  // Bamboo sticks: [x, top, bottom, colour]
+  const STICKS = {
+    2: [[15, 3, 18, "g"], [15, 22, 37, "b"]],
+    3: [[15, 3, 18, "b"], [9, 22, 37, "g"], [21, 22, 37, "g"]],
+    4: [[9, 3, 18, "b"], [21, 3, 18, "g"], [9, 22, 37, "g"], [21, 22, 37, "b"]],
+    5: [[6.5, 3, 18, "g"], [23.5, 3, 18, "b"], [15, 13, 27, "r"], [6.5, 22, 37, "b"], [23.5, 22, 37, "g"]],
+    6: [7, 15, 23].flatMap(x => [[x, 3, 18, "g"], [x, 22, 37, "b"]]),
+    7: [[15, 2, 12, "r"], ...[7, 15, 23].flatMap(x => [[x, 15, 26, "g"], [x, 29, 39, "g"]])],
+    8: [5.5, 12, 18, 24.5].flatMap(x => [[x, 3, 18, "g"], [x, 22, 37, "g"]]),
+    9: [7, 15, 23].flatMap(x => [2, 15, 28].map(y => [x, y, y + 10.5, x === 15 ? "r" : "g"])),
+  };
+  const BIRD = C => `<path d="M8 29Q5 34 3 39M10.5 30Q8.5 35 9.5 39.5M13 30.5Q13.5 35 16 39" stroke="${C.b}" stroke-width="1.7" fill="none" stroke-linecap="round"/>`
+    + `<path d="M6 28Q4 21 9 17.5Q13 14 18 15.5Q22.5 17 22 23Q21.5 29 14.5 31Q9 32 6 28Z" fill="${C.g}"/>`
+    + `<path d="M9.5 21.5Q14.5 18 19 22.5Q14 25.5 9.5 21.5Z" fill="${C.b}"/>`
+    + `<circle cx="21" cy="12.5" r="3.8" fill="${C.g}"/><circle cx="22" cy="11.8" r="1" fill="${C.face}"/>`
+    + `<path d="M24.4 12.2L28.5 13.4L24.4 14.6Z" fill="${C.r}"/>`
+    + `<path d="M19.5 9Q20 5.5 22.5 5M21 8.8Q22.8 6 25.2 6.2" stroke="${C.r}" stroke-width="1.3" fill="none" stroke-linecap="round"/>`
+    + `<path d="M14 31v4.5M17 30.5v5" stroke="${C.r}" stroke-width="1.3" stroke-linecap="round"/>`;
+  function suitArt(t, C = PIP_VARS) {
+    const n = +t[0];
+    if (t[1] === "p") {
+      if (n === 1) return `<circle cx="15" cy="20" r="12" fill="${C.g}"/><circle cx="15" cy="20" r="9.2" fill="${C.face}"/>`
+        + Array.from({ length: 8 }, (_, i) => `<circle cx="15" cy="12.6" r="1.7" fill="${C.b}" transform="rotate(${i * 45} 15 20)"/>`).join("")
+        + `<circle cx="15" cy="20" r="4.2" fill="${C.r}"/><circle cx="15" cy="20" r="1.6" fill="${C.face}"/>`;
+      return DOTS[n].map(([x, y, r, c]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${C[c]}"/>`
+        + `<circle cx="${x}" cy="${y}" r="${(r * 0.6).toFixed(2)}" fill="${C.face}"/><circle cx="${x}" cy="${y}" r="${(r * 0.3).toFixed(2)}" fill="${C[c]}"/>`).join("");
+    }
+    if (n === 1) return BIRD(C);
+    const w = n === 8 ? 3.6 : 4.2;
+    return STICKS[n].map(([x, y1, y2, c]) => {
+      const mid = (y1 + y2) / 2;
+      return `<rect x="${x - w / 2}" y="${y1}" width="${w}" height="${y2 - y1}" rx="${w / 2}" fill="${C[c]}"/>`
+        + `<rect x="${x - w / 2}" y="${mid - 0.5}" width="${w}" height="1" fill="${C.face}"/>`
+        + `<rect x="${x - w / 2 - 0.4}" y="${mid + 0.5}" width="${w + 0.8}" height="1.1" rx=".5" fill="${C[c]}"/>`;
+    }).join("");
+  }
+
   function tile(code, cls = "") {
     const el = document.createElement("span");
     const [n, s] = code.split("");
     el.className = `t ${s}${s === "z" ? " z" + n : ""} ${cls}`.trim();
-    el.innerHTML = s === "z" ? `<b>${HON[n]}</b>` : `<b>${n}</b><i>${SUIT[s]}</i>`;
+    el.innerHTML = s === "z" ? `<b>${HON[n]}</b>`
+      : s === "m" ? `<b>${n}</b><i>${SUIT[s]}</i>`
+      : `<svg class="pips" viewBox="0 0 30 40" aria-hidden="true">${suitArt(code, PIP_FIXED)}</svg><span class="idx">${n}</span>`;
     el.dataset.code = code;
     return el;
   }
