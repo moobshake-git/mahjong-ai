@@ -32,6 +32,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
+        elif self.path in ("/logo.svg", "/favicon.svg", "/favicon.ico"):
+            self._send(200, (STATIC / "logo.svg").read_bytes(), "image/svg+xml")
         elif self.path == "/api/status":
             self._json(200, {"jev_configured": jev.is_configured()})
         else:
