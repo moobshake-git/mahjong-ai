@@ -61,6 +61,8 @@ def main(argv=None) -> int:
                    help="Use 0.0.0.0 to open it from a phone on the same Wi-Fi")
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--no-browser", action="store_true")
+    s.add_argument("--cert", help="TLS certificate (PEM) to serve https://, needed for a phone's camera")
+    s.add_argument("--key", help="Private key (PEM) for --cert")
 
     a = sub.add_parser("advise", help="Get advice for one moment of a turn")
     a.add_argument("hand", help="Concealed tiles, e.g. '123m 456p 789s 11z 55z'")
@@ -83,7 +85,7 @@ def main(argv=None) -> int:
     load_dotenv()
     if args.cmd == "serve":
         from .server import serve
-        serve(args.host, args.port, open_browser=not args.no_browser)
+        serve(args.host, args.port, open_browser=not args.no_browser, cert=args.cert, key=args.key)
         return 0
 
     melds = []

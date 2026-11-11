@@ -14,3 +14,5 @@ node_modules/
 Thumbs.db
 .vscode/
 .idea/
+# Local HTTPS certificate for the phone camera
+*.pem
