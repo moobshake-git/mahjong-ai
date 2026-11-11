@@ -6,6 +6,7 @@ import json
 import sys
 
 from .api import advise_from_json
+from .env import load_dotenv
 
 
 def _format_needs(needs) -> str:
@@ -79,6 +80,7 @@ def main(argv=None) -> int:
     a.add_argument("--json", action="store_true", help="Print the raw JSON result")
 
     args = ap.parse_args(argv)
+    load_dotenv()
     if args.cmd == "serve":
         from .server import serve
         serve(args.host, args.port, open_browser=not args.no_browser)

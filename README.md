@@ -44,19 +44,25 @@ That opens http://localhost:8000. To use it from your phone on the same Wi-Fi, r
 
 ### Turn Jev on
 
-Get an API key from TypeSafe AI and set it in the environment before starting the server.
-Never commit it; `.env` files are already git-ignored.
+Jev runs through **OpenCode** (OpenCode Zen) by default. Copy the example settings
+file and put your OpenCode Console API key in it:
 
 ```bash
-# macOS / Linux / Git Bash
-export JEV_API_KEY="sk_..."
-# Windows PowerShell
-$env:JEV_API_KEY = "sk_..."
+cp .env.example .env
 ```
 
-Optional: `JEV_MODEL` (default `typesafe/jev-1.14`) and `JEV_API_URL`
-(default `https://thejevai.com/v1/systemone`). The key stays on the server and is never
-sent to the browser.
+Then edit `.env` and set `JEV_API_KEY=`. The app reads `.env` when it starts.
+`.env` is git-ignored, so the key is never committed, and it stays on the server
+(it is never sent to the browser).
+
+| Setting | OpenCode value (in `.env.example`) |
+|---|---|
+| `JEV_API_URL` | `https://opencode.ai/inference/systemone/v1/systemone` |
+| `JEV_MODEL` | `jev-1.13-free` (free for a limited time) or `jev-1.13` (paid) |
+
+To call TypeSafe AI directly instead, use their key with `JEV_API_URL=https://thejevai.com/v1/systemone`
+and `JEV_MODEL=typesafe/jev-1.14` (also the built-in defaults when `.env` doesn't set them).
+Anything set in the real environment (for example `$env:JEV_API_KEY = "..."`) overrides `.env`.
 
 ### Using the page
 
