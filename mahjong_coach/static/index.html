@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mahjong Turn Coach</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1f2328; --muted: #6b6f76; --line: #dedbd2;
+    --tile: #fffdf7; --tile-edge: #cfc8b6; --accent: #1f6f5c; --accent-ink: #ffffff;
+    --warn-bg: #fff4e0; --warn-ink: #7a4b00; --good: #1f6f5c; --bad: #a33a2b;
+    --m: #b4372a; --p: #2b5fa8; --s: #2f7d3a; --z: #2b2b2b;
+    --sel: #e7f2ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16181b; --panel: #1f2226; --ink: #e8e6e1; --muted: #9aa0a6; --line: #34383e;
+      --tile: #2a2e33; --tile-edge: #454a51; --accent: #4fb397; --accent-ink: #0d1512;
+      --warn-bg: #3a2c12; --warn-ink: #f3c77a; --good: #6fd0b2; --bad: #ef8a7a;
+      --m: #ef7f71; --p: #7fa8ea; --s: #79c486; --z: #e8e6e1; --sel: #233a33;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 12px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 4px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .settings label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  select, input[type=number] { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  input[type=number] { width: 52px; }
+  button { font: inherit; cursor: pointer; }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 6px 10px; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tab { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 12px; }
+  .tab[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tile { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 40px; height: 54px; border-radius: 6px; background: var(--tile); border: 1px solid var(--tile-edge);
+    box-shadow: 0 2px 0 var(--tile-edge); padding: 0; color: var(--z); line-height: 1; }
+  .tile b { font-size: 19px; }
+  .tile i { font-style: normal; font-size: 12px; margin-top: 3px; }
+  .tile.m { color: var(--m); } .tile.p { color: var(--p); } .tile.s { color: var(--s); }
+  .tile.small { width: 30px; height: 40px; } .tile.small b { font-size: 14px; } .tile.small i { font-size: 10px; }
+  .tile .left { position: absolute; top: -6px; right: -6px; background: var(--ink); color: var(--bg); font-size: 10px;
+    border-radius: 999px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; }
+  .tile.dead { opacity: .35; }
+  .tile:disabled { opacity: .3; cursor: default; }
+  .tile.hl { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .palette .suit { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .hand { min-height: 58px; gap: 4px; }
+  .slot { display: flex; align-items: center; gap: 6px; }
+  .meld { display: inline-flex; gap: 1px; padding: 3px; border: 1px dashed var(--line); border-radius: 8px; align-items: center; }
+  .meld .x { border: 0; background: none; color: var(--muted); padding: 0 4px; }
+  .bonus { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--tile); color: var(--ink); font-size: 13px; }
+  .headline { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+  .warn { background: var(--warn-bg); color: var(--warn-ink); padding: 8px 10px; border-radius: 8px; margin: 6px 0; font-size: 14px; }
+  .opt { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .opt.rec { border-color: var(--accent); background: var(--sel); }
+  .opt-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .opt-title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .needs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .need { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .need .pay { color: var(--good); font-weight: 600; } .need .nopay { color: var(--bad); }
+  .badge { font-size: 11px; border-radius: 999px; padding: 2px 8px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.jev { border-color: var(--accent); color: var(--accent); }
+  .err { color: var(--bad); }
+  .count { font-variant-numeric: tabular-nums; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  @media (max-width: 520px) {
+    main { padding: 10px 12px 40px; } section { padding: 10px; }
+    .tile { width: 30px; height: 44px; } .tile b { font-size: 15px; } .tile i { font-size: 10px; }
+    .palette .suit { gap: 3px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Mahjong Turn Coach</h1>
+    <span class="muted" id="engine">Singapore rules</span>
+  </header>
+
+  <section class="settings">
+    <div class="row">
+      <label>Seat <select id="seat"><option>E</option><option>S</option><option>W</option><option>N</option></select></label>
+      <label>Prevailing <select id="round"><option>E</option><option>S</option><option>W</option><option>N</option></select></label>
+      <label>Min tai <input id="minTai" type="number" min="0" max="5" value="1"></label>
+      <label>Cap <input id="maxTai" type="number" min="1" max="13" value="5"></label>
+      <label><input id="useJev" type="checkbox" checked> Ask Jev</label>
+      <span style="flex:1"></span>
+      <button class="btn" id="undo" title="Undo last change">Undo</button>
+      <button class="btn" id="reset">New hand</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your tiles <span class="count" id="handCount"></span></h2>
+    <div class="row hand" id="hand"></div>
+    <div class="row" style="margin-top:8px; gap:14px">
+      <div class="slot"><span class="muted">Drew</span><span id="drawn"></span></div>
+      <div class="slot"><span class="muted">Thrown</span><span id="thrown"></span>
+        <label class="muted"><input type="checkbox" id="fromLeft"> from player on my left</label></div>
+    </div>
+    <div class="row" id="melds" style="margin-top:8px"></div>
+    <div class="row" id="bonus" style="margin-top:8px"></div>
+  </section>
+
+  <section>
+    <div class="tabs" role="group" aria-label="Where tapped tiles go">
+      <button class="tab" data-target="hand">My hand</button>
+      <button class="tab" data-target="drawn">I drew</button>
+      <button class="tab" data-target="thrown">Thrown</button>
+      <button class="tab" data-target="seen">Seen elsewhere</button>
+      <button class="tab" data-target="bonus">Flowers / animals</button>
+    </div>
+    <div class="palette" id="palette"></div>
+    <div class="row" id="bonusPalette" hidden></div>
+    <details style="margin-top:6px"><summary>Seen elsewhere (<span id="seenCount">0</span>), tap to remove</summary>
+      <div class="row" id="seen" style="margin-top:6px"></div></details>
+  </section>
+
+  <section aria-live="polite">
+    <h2>Advice</h2>
+    <div id="advice"><p class="muted">Enter your 13 tiles to start.</p></div>
+  </section>
+</main>
+
+<script>
+const SUITS = { m: "萬", p: "筒", s: "索" };
+const HONORS = ["東", "南", "西", "北", "白", "發", "中"];
+const HONOR_NAMES = ["East wind", "South wind", "West wind", "North wind", "White dragon", "Green dragon", "Red dragon"];
+const SUIT_NAMES = { m: "Characters", p: "Dots", s: "Bamboo" };
+const BONUS = [["f1","Plum"],["f2","Orchid"],["f3","Chrysanthemum"],["f4","Bamboo"],
+               ["s1","Spring"],["s2","Summer"],["s3","Autumn"],["s4","Winter"],
+               ["cat","Cat"],["rat","Rat"],["rooster","Rooster"],["centipede","Centipede"]];
+const ALL = [];
+for (const s of "mps") for (let n = 1; n <= 9; n++) ALL.push(n + s);
+for (let n = 1; n <= 7; n++) ALL.push(n + "z");
+const order = t => ALL.indexOf(t);
+const label = t => t[1] === "z" ? HONOR_NAMES[+t[0] - 1] : `${t[0]} ${SUIT_NAMES[t[1]]}`;
+
+const blank = () => ({ hand: [], drawn: null, thrown: null, fromLeft: false, melds: [], seen: [], bonus: [], target: "hand" });
+let state = blank();
+let settings = { seat: "E", round: "E", minTai: 1, maxTai: 5, useJev: true };
+const history = [];
+try {
+  const saved = JSON.parse(localStorage.getItem("mjcoach") || "null");
+  if (saved && saved.state) { state = { ...blank(), ...saved.state }; settings = { ...settings, ...saved.settings }; }
+} catch (e) {}
+
+function save() { try { localStorage.setItem("mjcoach", JSON.stringify({ state, settings })); } catch (e) {} }
+function change(fn) { history.push(JSON.stringify(state)); if (history.length > 100) history.shift(); fn(); render(); }
+
+function meldTiles(m) {
+  if (m.kind === "chow") { const n = +m.tile[0]; return [0,1,2].map(i => (n + i) + m.tile[1]); }
+  return Array(m.kind === "kong" ? 4 : 3).fill(m.tile);
+}
+function known() {
+  const k = {};
+  const add = t => { k[t] = (k[t] || 0) + 1; };
+  state.hand.forEach(add); state.seen.forEach(add); state.melds.flatMap(meldTiles).forEach(add);
+  if (state.drawn) add(state.drawn); if (state.thrown) add(state.thrown);
+  return k;
+}
+const baseSize = () => 13 - 3 * state.melds.length;
+
+function tileEl(t, { small = false, left = null, onClick = null, title = null, hl = false } = {}) {
+  const el = document.createElement(onClick ? "button" : "span");
+  el.className = `tile ${t[1]}${small ? " small" : ""}${hl ? " hl" : ""}`;
+  el.innerHTML = t[1] === "z" ? `<b>${HONORS[+t[0] - 1]}</b>` : `<b>${t[0]}</b><i>${SUITS[t[1]]}</i>`;
+  el.setAttribute("aria-label", label(t)); el.title = title || label(t);
+  if (left !== null) { const s = document.createElement("span"); s.className = "left"; s.textContent = left; el.appendChild(s); if (left === 0) el.classList.add("dead"); }
+  if (onClick) { el.type = "button"; el.addEventListener("click", onClick); }
+  return el;
+}
+
+function render() {
+  save();
+  const k = known();
+  // settings
+  for (const [id, key] of [["seat","seat"],["round","round"],["minTai","minTai"],["maxTai","maxTai"]]) document.getElementById(id).value = settings[key];
+  document.getElementById("useJev").checked = settings.useJev;
+  document.getElementById("fromLeft").checked = state.fromLeft;
+  // hand
+  const hand = document.getElementById("hand"); hand.replaceChildren();
+  [...state.hand].sort((a, b) => order(a) - order(b)).forEach(t =>
+    hand.appendChild(tileEl(t, { onClick: () => change(() => state.hand.splice(state.hand.indexOf(t), 1)), title: `Remove ${label(t)}` })));
+  const n = state.hand.length + (state.drawn ? 1 : 0);
+  document.getElementById("handCount").textContent = `${state.hand.length}${state.drawn ? " + 1" : ""} / ${baseSize()}`
+    + (n > baseSize() ? " · discard one" : "");
+  const drawn = document.getElementById("drawn"); drawn.replaceChildren(state.drawn ? tileEl(state.drawn, { onClick: () => change(() => state.drawn = null), title: "Clear" }) : document.createTextNode("–"));
+  const thrown = document.getElementById("thrown"); thrown.replaceChildren(state.thrown ? tileEl(state.thrown, { onClick: () => change(() => state.thrown = null), title: "Clear" }) : document.createTextNode("–"));
+  // melds
+  const melds = document.getElementById("melds"); melds.replaceChildren();
+  state.melds.forEach((m, i) => {
+    const box = document.createElement("span"); box.className = "meld";
+    meldTiles(m).forEach(t => box.appendChild(tileEl(t, { small: true })));
+    const x = document.createElement("button"); x.className = "x"; x.textContent = "×"; x.title = "Remove meld";
+    x.addEventListener("click", () => change(() => state.melds.splice(i, 1)));
+    box.appendChild(x); melds.appendChild(box);
+  });
+  // bonus
+  const bonus = document.getElementById("bonus"); bonus.replaceChildren();
+  state.bonus.forEach(b => { const el = document.createElement("button"); el.className = "bonus"; el.textContent = BONUS.find(x => x[0] === b)[1] + " ×";
+    el.addEventListener("click", () => change(() => state.bonus.splice(state.bonus.indexOf(b), 1))); bonus.appendChild(el); });
+  // tabs
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-pressed", b.dataset.target === state.target));
+  // palette
+  const pal = document.getElementById("palette"); pal.replaceChildren();
+  const bp = document.getElementById("bonusPalette");
+  pal.hidden = state.target === "bonus"; bp.hidden = state.target !== "bonus";
+  for (const suit of ["m", "p", "s", "z"]) {
+    const row = document.createElement("div"); row.className = "suit";
+    ALL.filter(t => t[1] === suit).forEach(t => {
+      const left = 4 - (k[t] || 0);
+      const el = tileEl(t, { left, onClick: () => addTile(t) });
+      if (left <= 0) el.disabled = true;
+      row.appendChild(el);
+    });
+    pal.appendChild(row);
+  }
+  bp.replaceChildren();
+  BONUS.forEach(([id, name]) => { const el = document.createElement("button"); el.className = "bonus"; el.textContent = name;
+    el.disabled = state.bonus.includes(id); el.addEventListener("click", () => change(() => state.bonus.push(id))); bp.appendChild(el); });
+  // seen
+  document.getElementById("seenCount").textContent = state.seen.length;
+  const seen = document.getElementById("seen"); seen.replaceChildren();
+  state.seen.forEach((t, i) => seen.appendChild(tileEl(t, { small: true, onClick: () => change(() => state.seen.splice(i, 1)), title: `Remove ${label(t)}` })));
+  scheduleAdvice();
+}
+
+function addTile(t) {
+  change(() => {
+    switch (state.target) {
+      case "hand":
+        if (state.hand.length < baseSize()) state.hand.push(t);
+        if (state.hand.length >= baseSize()) state.target = "drawn";  // hand full: next is a draw or a throw
+        break;
+      case "drawn": state.drawn = t; state.thrown = null; break;
+      case "thrown": state.thrown = t; state.drawn = null; break;
+      case "seen": state.seen.push(t); break;
+    }
+  });
+}
+
+let timer = null, seq = 0;
+function scheduleAdvice() { clearTimeout(timer); timer = setTimeout(fetchAdvice, 120); }
+
+async function fetchAdvice() {
+  const box = document.getElementById("advice");
+  const n = state.hand.length + (state.drawn ? 1 : 0);
+  if (state.hand.length < baseSize()) {
+    box.innerHTML = `<p class="muted">Enter your ${baseSize()} tiles (${state.hand.length} so far). Tap a tile to remove it.</p>`;
+    return;
+  }
+  const payload = {
+    hand: state.hand, drawn: state.drawn, thrown: state.thrown, from_left: state.fromLeft,
+    melds: state.melds, seen: state.seen, bonus: state.bonus,
+    seat_wind: settings.seat, round_wind: settings.round, min_tai: settings.minTai, max_tai: settings.maxTai,
+    use_jev: settings.useJev,
+  };
+  const my = ++seq;
+  box.style.opacity = .6;
+  try {
+    const res = await fetch("/api/advise", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (my !== seq) return;
+    box.style.opacity = 1;
+    if (!res.ok) { box.innerHTML = ""; const p = document.createElement("p"); p.className = "err"; p.textContent = data.error; box.appendChild(p); return; }
+    renderAdvice(data);
+  } catch (e) {
+    if (my !== seq) return;
+    box.style.opacity = 1;
+    box.innerHTML = `<p class="err">Can't reach the coach server. Is it still running?</p>`;
+  }
+}
+
+function needsEl(needs) {
+  const wrap = document.createElement("div"); wrap.className = "needs";
+  needs.forEach(nd => {
+    const el = document.createElement("span"); el.className = "need";
+    el.appendChild(tileEl(nd.tile, { small: true, left: nd.live }));
+    const txt = document.createElement("span");
+    if (nd.live === 0) txt.textContent = "gone";
+    else if (nd.tai_self_drawn !== undefined) {
+      txt.className = nd.pays ? "pay" : "nopay";
+      txt.textContent = nd.pays_on_discard ? `${nd.tai} tai` : nd.pays ? `${nd.tai_self_drawn} tai, self-draw only` : `${nd.tai_self_drawn} tai, won't pay`;
+    } else if (nd.pays === true) { txt.className = "pay"; txt.textContent = "pays"; }
+    else if (nd.pays === false) { txt.className = "nopay"; txt.textContent = "won't pay"; }
+    el.appendChild(txt); wrap.appendChild(el);
+  });
+  return wrap;
+}
+
+function actionButton(o) {
+  const b = document.createElement("button"); b.className = "btn" + (o.recommended ? " primary" : "");
+  switch (o.action) {
+    case "discard": b.textContent = `Discard ${o.tile}`; b.onclick = () => change(() => {
+        const all = [...state.hand, ...(state.drawn ? [state.drawn] : [])];
+        all.splice(all.indexOf(o.tile), 1); state.hand = all; state.drawn = null; state.seen.push(o.tile); state.target = "thrown"; }); break;
+    case "pass": b.textContent = "Pass"; b.onclick = () => change(() => { state.seen.push(state.thrown); state.thrown = null; }); break;
+    case "win": b.textContent = "Won! New hand"; b.onclick = () => change(() => { state = blank(); }); break;
+    default: b.textContent = o.action === "chow" ? `Chow ${o.meld.tile[0]}${+o.meld.tile[0]+1}${+o.meld.tile[0]+2}${o.meld.tile[1]}` : `${o.action[0].toUpperCase()}${o.action.slice(1)} ${o.tile}`;
+      b.onclick = () => change(() => { o.uses.forEach(t => state.hand.splice(state.hand.indexOf(t), 1));
+        state.melds.push({ kind: o.meld.kind, tile: o.meld.tile }); state.thrown = null; state.target = o.action === "kong" ? "drawn" : "hand"; });
+  }
+  return b;
+}
+
+function renderAdvice(r) {
+  const box = document.getElementById("advice"); box.replaceChildren();
+  const h = document.createElement("p"); h.className = "headline"; h.textContent = r.headline; box.appendChild(h);
+  if (r.decided_by) {
+    const b = document.createElement("span"); b.className = "badge" + (r.decided_by.source === "jev" ? " jev" : "");
+    b.textContent = r.decided_by.source === "jev"
+      ? `Picked by Jev${r.decided_by.confidence != null ? ` · ${Math.round(r.decided_by.confidence * 100)}% confident` : ""}${r.decided_by.agrees_with_engine ? "" : " · engine disagrees"}`
+      : r.decided_by.note;
+    box.appendChild(b);
+  }
+  (r.warnings || []).forEach(w => { const d = document.createElement("div"); d.className = "warn"; d.textContent = w; box.appendChild(d); });
+  if (r.mode === "waiting") {
+    const p = document.createElement("p"); p.className = "muted"; p.textContent = "Watch for these tiles on other players' turns:"; box.appendChild(p);
+    box.appendChild(needsEl(r.needs));
+    return;
+  }
+  const shown = r.options.slice(0, 5);
+  shown.forEach(o => {
+    const d = document.createElement("div"); d.className = "opt" + (o.recommended ? " rec" : "");
+    const top = document.createElement("div"); top.className = "opt-top";
+    const title = document.createElement("div"); title.className = "opt-title";
+    if (o.tile && o.action !== "win") title.appendChild(tileEl(o.tile, { small: true }));
+    const t = document.createElement("span");
+    t.textContent = (o.action === "discard" ? `Discard ${o.label}` : o.action === "win" ? "Win" : o.action === "pass" ? "Pass" : `${o.action[0].toUpperCase()}${o.action.slice(1)}`)
+      + (o.recommended ? " · best" : "") + (o.engine_pick && !o.recommended ? " · engine's pick" : "");
+    title.appendChild(t);
+    if (o.jev_probability != null) { const b = document.createElement("span"); b.className = "badge"; b.textContent = `Jev ${Math.round(o.jev_probability * 100)}%`; title.appendChild(b); }
+    top.appendChild(title); top.appendChild(actionButton(o)); d.appendChild(top);
+    const s = document.createElement("div"); s.className = "muted"; s.textContent = o.summary; d.appendChild(s);
+    if (o.reason && o.recommended) { const rs = document.createElement("div"); rs.textContent = o.reason; d.appendChild(rs); }
+    if (o.score) { const sc = document.createElement("div"); sc.className = "muted"; sc.textContent = o.score.items.map(i => `${i.name} ${i.tai}`).join(" · "); d.appendChild(sc); }
+    if (o.needs && o.needs.length) d.appendChild(needsEl(o.needs.slice(0, 10)));
+    box.appendChild(d);
+  });
+  if (r.options.length > shown.length) { const m = document.createElement("p"); m.className = "muted"; m.textContent = `${r.options.length - shown.length} weaker options hidden.`; box.appendChild(m); }
+}
+
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => change(() => state.target = b.dataset.target)));
+document.getElementById("fromLeft").addEventListener("change", e => change(() => state.fromLeft = e.target.checked));
+for (const [id, key, num] of [["seat","seat",false],["round","round",false],["minTai","minTai",true],["maxTai","maxTai",true]])
+  document.getElementById(id).addEventListener("change", e => { settings[key] = num ? +e.target.value : e.target.value; render(); });
+document.getElementById("useJev").addEventListener("change", e => { settings.useJev = e.target.checked; render(); });
+document.getElementById("undo").addEventListener("click", () => { if (history.length) { state = JSON.parse(history.pop()); render(); } });
+document.getElementById("reset").addEventListener("click", () => change(() => { state = blank(); }));
+fetch("/api/status").then(r => r.json()).then(s => {
+  document.getElementById("engine").textContent = s.jev_configured ? "Singapore rules · Jev on" : "Singapore rules · Jev off (no JEV_API_KEY)";
+}).catch(() => {});
+render();
+</script>
+</body>
+</html>
