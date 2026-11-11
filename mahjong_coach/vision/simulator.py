@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import random
 
-from .tracker import SEATS, tile_sort_key
+from .tracker import SEAT_NAMES, SEATS, tile_sort_key
 
 FPS = 5
 WIDTH, HEIGHT = 960, 540
@@ -46,6 +46,13 @@ ZONES_FOR_UI = [
     {"name": "Called sets", "box": [30, 55, 900, 75]},
 ]
 
+# Name tags for the other players, drawn where they sit in the picture.
+SEAT_LABELS = [
+    {"seat": "across", "text": SEAT_NAMES["across"], "x": 480, "y": 44},
+    {"seat": "left", "text": SEAT_NAMES["left"], "x": 120, "y": 250},
+    {"seat": "right", "text": SEAT_NAMES["right"], "x": 840, "y": 250},
+]
+
 # Where each player's arm comes from when they reach to the middle.
 ARM_FROM = {"me": (480, 540), "right": (960, 260), "across": (480, 0), "left": (0, 260)}
 
@@ -53,17 +60,17 @@ DEMO_SCRIPT = [
     {"do": "deal", "hand": "1m 2m 3m 4p 5p 6p 7s 8s 9s 1z 1z 1s 3s".split(), "bonus": ["f1"],
      "caption": "The camera reads your 13 tiles and your Plum flower."},
     {"do": "throw", "seat": "left", "tile": "9m",
-     "caption": "The player on your left throws 9 Characters."},
+     "caption": "Beside me (left) throws 9 Characters."},
     {"do": "draw", "tile": "3s", "caption": "Your turn: you draw 3 Bamboo."},
     {"do": "discard", "tile": "1s", "caption": "You discard 1 Bamboo, as the coach suggests."},
-    {"do": "throw", "seat": "right", "tile": "2s", "caption": "The player on your right throws 2 Bamboo."},
-    {"do": "throw", "seat": "across", "tile": "6z", "caption": "The player opposite throws Green dragon."},
+    {"do": "throw", "seat": "right", "tile": "2s", "caption": "Beside me (right) throws 2 Bamboo."},
+    {"do": "throw", "seat": "across", "tile": "6z", "caption": "Oppo throws Green dragon."},
     {"do": "pong", "seat": "left", "from": "across", "tile": "6z",
-     "caption": "The player on your left calls pong on the Green dragon."},
+     "caption": "Beside me (left) calls pong on Oppo's Green dragon."},
     {"do": "throw", "seat": "left", "tile": "9p", "caption": "...and throws 9 Dots."},
     {"do": "draw", "tile": "7m", "caption": "Your turn: you draw 7 Characters."},
     {"do": "discard", "tile": "7m", "caption": "You throw it straight back."},
-    {"do": "throw", "seat": "right", "tile": "1z", "caption": "The player on your right throws East wind!"},
+    {"do": "throw", "seat": "right", "tile": "1z", "caption": "Beside me (right) throws East wind!"},
 ]
 
 # What a tile is most likely to be mistaken for.
@@ -155,7 +162,7 @@ def simulate(script=None, seed: int = 7, settle_frames: int = 14, reach_frames: 
         for _ in range(settle_frames + (settle_frames // 2 if last else 0)):   # let the final view settle too
             frames.append(_frame(t, i, table.detections(), rng, noise))
             t += 1 / FPS
-    return {"fps": FPS, "width": WIDTH, "height": HEIGHT, "zones": ZONES_FOR_UI,
+    return {"fps": FPS, "width": WIDTH, "height": HEIGHT, "zones": ZONES_FOR_UI, "seats": SEAT_LABELS,
             "captions": captions, "frames": frames}
 
 

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from mahjong_coach.api import advise_from_json
-from mahjong_coach.vision import photo
+from mahjong_coach.vision import reader
 from mahjong_coach.vision.simulator import DEMO_SCRIPT, simulate
 from mahjong_coach.vision.tracker import Tracker, meld_of
 
@@ -174,29 +174,46 @@ class FakeClient:
         return SimpleNamespace(stop_reason=self.stop_reason, content=content, model=kw["model"])
 
 
-class PhotoTests(unittest.TestCase):
-    def test_reads_and_cleans_tiles(self):
-        client = FakeClient({"hand": HAND + ["9q"], "bonus": ["f1", "f1", "cat"], "unsure": [12, 99],
-                             "note": ""})
+def table_read(**kw):
+    read = {"hand": HAND, "bonus": ["f1"], "my_melds": [],
+            "discards": {"me": [], "left": ["9m"], "across": [], "right": []},
+            "melds": {"left": [], "across": [], "right": []}, "hands_over_table": False, "note": ""}
+    read.update(kw)
+    return read
+
+
+class ReaderTests(unittest.TestCase):
+    def test_reads_the_table_into_a_tracker_frame(self):
+        client = FakeClient(table_read(hand=HAND + ["9q"], melds={"left": [["6z"] * 3], "across": [], "right": []}))
         with mock.patch.dict(os.environ, {"VISION_MODEL": "claude-opus-5-5"}):
-            out = photo.read_photo(b"\xff\xd8jpeg", "image/jpeg", client=client)
-        self.assertEqual(out["hand"], HAND)          # unknown code dropped
-        self.assertEqual(out["bonus"], ["f1", "cat"])
-        self.assertEqual(out["unsure"], [12])
+            out = reader.read_frame(b"jpeg-bytes", "image/jpeg", client=client)
+        dets = out["frame"]["detections"]
+        self.assertEqual([d["tile"] for d in dets if d["zone"] == "hand"], HAND)   # unknown code dropped
+        self.assertEqual([(d["seat"], d["tile"]) for d in dets if d["zone"] == "discard"], [("left", "9m")])
+        self.assertEqual(sum(d["zone"] == "meld" for d in dets), 3)
+        self.assertFalse(out["frame"]["motion"])
         req = client.calls[0]
         self.assertEqual(req["model"], "claude-opus-5-5")
         self.assertEqual(req["fallbacks"], "default")
         self.assertEqual(req["output_config"]["format"]["type"], "json_schema")
-        image = req["messages"][0]["content"][0]
-        self.assertEqual(image["source"]["media_type"], "image/jpeg")
+        self.assertEqual(req["messages"][0]["content"][0]["source"]["media_type"], "image/jpeg")
+        # Same view through the tracker: hand set, bonus, a throw from beside me (left).
+        tr = Tracker()
+        events, state = feed(tr, out["frame"]["detections"])
+        self.assertEqual([e["type"] for e in events], ["hand_set", "bonus"])
+        self.assertEqual(state["seen"], ["9m", "6z", "6z", "6z"])
+
+    def test_hands_over_table_is_motion(self):
+        out = reader.read_frame(b"x", "image/jpeg", client=FakeClient(table_read(hands_over_table=True)))
+        self.assertTrue(out["frame"]["motion"])
 
     def test_refusal_and_bad_input(self):
-        with self.assertRaises(photo.PhotoError):
-            photo.read_photo(b"x", "image/jpeg", client=FakeClient({}, stop_reason="refusal"))
-        with self.assertRaises(photo.PhotoError):
-            photo.read_photo(b"x", "text/plain", client=FakeClient({}))
-        with self.assertRaises(photo.PhotoError):
-            photo.read_photo(b"x" * (photo.MAX_IMAGE_BYTES + 1), "image/png", client=FakeClient({}))
+        with self.assertRaises(reader.ReadError):
+            reader.read_frame(b"x", "image/jpeg", client=FakeClient({}, stop_reason="refusal"))
+        with self.assertRaises(reader.ReadError):
+            reader.read_frame(b"x", "text/plain", client=FakeClient({}))
+        with self.assertRaises(reader.ReadError):
+            reader.read_frame(b"x" * (reader.MAX_IMAGE_BYTES + 1), "image/png", client=FakeClient({}))
 
 
 class ServerTests(unittest.TestCase):
@@ -236,9 +253,23 @@ class ServerTests(unittest.TestCase):
     def test_bad_requests(self):
         self.assertEqual(self.post("/api/vision/frame", {"session": "t2"})[0], 400)
         self.assertEqual(self.post("/api/vision/frame", {"frame": {"detections": "x"}})[0], 400)
-        code, out = self.post("/api/vision/photo", b"hello", ctype="text/plain")
+        code, out = self.post("/api/vision/camera?session=t3", b"hello", ctype="text/plain")
         self.assertEqual(code, 400)
         self.assertIn("JPEG", out["error"])
+
+    def test_live_camera_needs_two_agreeing_reads_then_settles(self):
+        fake = FakeClient(table_read())
+        real = reader.read_frame
+        with mock.patch.object(reader, "read_frame", lambda img, mt: real(img, mt, client=fake)):
+            self.post("/api/vision/reset", {"session": "cam", "live": True})
+            code, first = self.post("/api/vision/camera?session=cam", b"jpeg-bytes", ctype="image/jpeg")
+            self.assertEqual(code, 200)
+            self.assertEqual(first["events"], [])
+            self.assertFalse(first["settled"])
+            _, second = self.post("/api/vision/camera?session=cam", b"jpeg-bytes", ctype="image/jpeg")
+            self.assertEqual([e["type"] for e in second["events"]], ["hand_set", "bonus"])
+            self.assertTrue(second["settled"])
+            self.assertEqual(second["state"]["seen"], ["9m"])
 
 
 if __name__ == "__main__":

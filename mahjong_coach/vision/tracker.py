@@ -31,6 +31,8 @@ from ..scoring import BONUS_LABELS
 from ..tiles import parse_tile, tile_name
 
 SEATS = ("me", "right", "across", "left")
+# What the app calls each player, from your seat.
+SEAT_NAMES = {"me": "Me", "left": "Beside me (left)", "across": "Oppo", "right": "Beside me (right)"}
 ZONES = ("hand", "discard", "meld", "bonus")
 
 
@@ -306,8 +308,7 @@ def kind_word(m: dict) -> str:
 
 
 def who(seat: str) -> str:
-    return {"right": "The player on your right", "across": "The player opposite you",
-            "left": "The player on your left"}.get(seat, "You")
+    return SEAT_NAMES.get(seat, "You") if seat != "me" else "You"
 
 
 ADVICE_EVENTS = {"hand_set", "drew", "thrown", "called", "bonus", "discarded"}

@@ -67,7 +67,7 @@ Anything set in the real environment (for example `$env:JEV_API_KEY = "..."`) ov
 ### Using the page
 
 - Tap tiles to fill **My hand** (13 tiles). When it's full, the input switches to **I drew**.
-- Use **Thrown** for another player's discard. Tick *from player on my left* to allow a chow.
+- Use **Thrown** for another player's discard. Tick *from beside me (left)* to allow a chow.
 - Add discards and other players' melds under **Seen elsewhere** so live counts stay accurate.
 - Add your flowers, seasons and animals under **Flowers / animals**.
 - The buttons on each suggestion (Discard, Pong, Pass, ...) update the hand for you. **Undo**
@@ -88,35 +88,54 @@ for the raw result.
 
 ## Camera (in progress)
 
-The goal is for the coach to read the table from one phone camera mounted just behind and above
-your shoulder: your own tiles, what you draw, and what other players throw. The first version
-runs without a camera:
+The coach can read the table from one phone or webcam mounted just behind and above your shoulder:
+your own tiles, what you draw, and what Oppo and the players beside you throw. The other players
+are named **Oppo** (opposite you), **Beside me (left)** and **Beside me (right)**.
 
-- **Play demo game** (Camera panel): a simulated camera plays a short scripted game. It draws
-  what a tile detector would report, including the problems a real camera has: an arm crossing
-  the table, a tile misread for one frame, far discards read with low confidence. The coach
-  fills itself in as events are recognised, and Jev gives advice at each step.
-- **Photo of my hand**: take or upload one photo, and Claude lists your tiles for you to confirm
-  before they're used. Optional: run `pip install anthropic` and add `ANTHROPIC_API_KEY` to `.env`
-  (and optionally `VISION_MODEL`, default `claude-opus-5-5`). The photo is sent to Anthropic's API.
+- **Play demo game** (Camera panel): a simulated camera plays a short scripted game, so you can see
+  it working without a camera. It draws what a tile detector would report, including what a real
+  camera gets wrong: an arm crossing the table, a tile misread for one frame, far discards read with
+  low confidence. The coach fills itself in as events are recognised, and Jev gives advice.
+- **Use my camera**: live video from this device's camera. The page watches for movement itself and,
+  once the table has been still for about a second, sends one frame to Claude, which lists every
+  tile it can see by zone and player. Two reads that agree count as a confirmed view; then reading
+  pauses until something moves again, so it costs about two Claude requests per change on the table.
+  Needs `pip install anthropic` and `ANTHROPIC_API_KEY` in `.env` (and optionally `VISION_MODEL`,
+  default `claude-opus-5-5`; `claude-haiku-5-5` is much cheaper). Frames are sent to Anthropic's API,
+  so tell the other players you're filming.
 
-How it fits together (`mahjong_coach/vision/`):
+### Camera on a phone
+
+Browsers only allow the camera on `https://` pages or on `localhost`. A laptop webcam works with the
+normal command. For a phone on the same Wi-Fi, make a self-signed certificate once and serve HTTPS:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=mahjong-coach" -keyout key.pem -out cert.pem
+python -m mahjong_coach serve --host 0.0.0.0 --cert cert.pem --key key.pem
+```
+
+In Git Bash on Windows, put `MSYS_NO_PATHCONV=1 ` in front of the `openssl` command, or Git Bash
+turns `/CN=...` into a file path. Open `https://<your-computer's-IP>:8000` on the phone and accept the certificate warning. Keep
+`cert.pem` and `key.pem` out of git (they're ignored).
+
+### How it fits together (`mahjong_coach/vision/`)
 
 ```
-detector (simulator now; trained model or Claude later)
-   -> per-frame detections: tile, zone (hand/discard/meld/bonus), seat, confidence, box
-   -> tracker.py: accepts a view only when it appears in 5 of the last 7 frames with no hands
-      over the table, checks it (hand size, at most 4 of a tile), then works out what changed
-   -> events (drew 3s, the player on your left threw 9p, ...) + the same table state you'd tap in
+camera frame (or the simulator)
+   -> detections: tile, zone (hand/discard/meld/bonus), player, confidence
+      (reader.py asks Claude; later a small trained detector can do this on the laptop)
+   -> tracker.py: accepts a view only when enough recent frames agree and no hands are over the
+      table, checks it (hand size, at most 4 of a tile), then works out what changed
+   -> events (you drew 3s, Beside me (left) threw 9p, Oppo threw 6z, ...) + the same table state you'd tap in
    -> /api/advise -> rules engine + Jev
 ```
 
 Endpoints: `GET /api/vision/demo?seed=7`, `POST /api/vision/frame` (`{session, frame}`),
-`POST /api/vision/reset`, `POST /api/vision/photo` (raw image body).
+`POST /api/vision/reset`, `POST /api/vision/camera?session=...` (raw JPEG body).
 
-Next steps: collect photos of your own tile set, use photo mode to pre-label them, train a small
+Next steps: collect frames of your own tile set, use the Claude reads to pre-label them, train a small
 detector (e.g. RF-DETR, Apache-2.0) that runs on the laptop, and feed its detections into the same
-`/api/vision/frame` endpoint. Live video from a phone needs the page served over HTTPS.
+tracker so each read is free and fast.
 
 ## Scoring (Singapore)
 

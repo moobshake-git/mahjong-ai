@@ -140,11 +140,7 @@
   .events .conflict { color: var(--bad); }
   .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 6px; }
   .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 2px; vertical-align: -1px; border: 2px solid var(--c); }
-  .photo-review { margin-top: 8px; }
-  .photo-review .row { margin: 6px 0; }
-  .tile.unsure { outline: 3px dashed var(--bad); outline-offset: 1px; }
-  .file-btn { position: relative; overflow: hidden; }
-  .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .cam-view video { width: 100%; height: 100%; display: block; object-fit: cover; background: #000; }
   @media (max-width: 520px) {
     main { padding: 12px 12px 40px; } section { padding: 12px; }
     .tile { width: 30px; height: 44px; } .tile b { font-size: 15px; } .tile i { font-size: 10px; }
@@ -178,17 +174,16 @@
         <select id="camSpeed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
       <label class="muted"><input type="checkbox" id="camAuto" checked> Fill in the coach automatically</label>
       <span style="flex:1"></span>
-      <span class="btn file-btn" id="photoBtn" title="Take or choose a photo of your tiles">Photo of my hand
-        <input type="file" id="photoInput" accept="image/*" capture="environment" aria-label="Photo of my hand"></span>
+      <button class="btn" id="camLive" title="Use this device's camera to read the table">Use my camera</button>
     </div>
-    <div class="cam-view"><svg id="camSvg" viewBox="0 0 960 540" role="img" aria-label="Simulated camera view of the table"></svg></div>
-    <div class="legend"><span style="--c:#4fd18b">read</span><span style="--c:#f2b33d">misread for one frame (ignored)</span>
+    <div class="cam-view"><svg id="camSvg" viewBox="0 0 960 540" role="img" aria-label="Simulated camera view of the table"></svg>
+      <video id="camVideo" playsinline muted hidden aria-label="Live camera view of the table"></video></div>
+    <div class="legend" id="camLegend"><span style="--c:#4fd18b">read</span><span style="--c:#f2b33d">misread for one frame (ignored)</span>
       <span style="--c:#ef6a5a">low confidence (ignored)</span></div>
     <p class="cam-caption" id="camCaption">Simulated camera: plays a short scripted game so you can see the camera feature without a camera.</p>
     <div class="cam-status"><span id="camStatus">Not running.</span><span class="votes" id="camVotes"></span></div>
     <div class="cam-coach" id="camCoach"></div>
     <ul class="events" id="camEvents"></ul>
-    <div class="photo-review" id="photoReview" hidden></div>
   </section>
 
   <section>
@@ -197,7 +192,7 @@
     <div class="row" style="margin-top:10px; gap:14px">
       <div class="slot"><span class="muted">Drew</span><span id="drawn"></span></div>
       <div class="slot"><span class="muted">Thrown</span><span id="thrown"></span>
-        <label><input type="checkbox" id="fromLeft"> from player on my left</label></div>
+        <label><input type="checkbox" id="fromLeft"> from beside me (left)</label></div>
     </div>
     <div class="row" id="melds" style="margin-top:8px"></div>
     <div class="row" id="bonus" style="margin-top:8px"></div>
@@ -671,7 +666,7 @@ function renderAdvice(r) {
   }
 }
 
-// ---------------- Camera (simulated feed + photo mode) ----------------
+// ---------------- Camera (simulated demo + live camera) ----------------
 // The demo plays frames from /api/vision/demo (what a tile detector would report)
 // and sends each one to /api/vision/frame, exactly as a real camera would.
 const cam = { session: Math.random().toString(36).slice(2), demo: null, i: 0, running: false, runId: 0, active: false };
@@ -724,6 +719,10 @@ function drawFrame(frame) {
     const [x, y, w, h] = z.box;
     svg.appendChild(svgEl("rect", { x, y, width: w, height: h, rx: 8, fill: "none", stroke: "#ffffff33", "stroke-dasharray": "6 5" }));
     svg.appendChild(svgEl("text", { x: x + 8, y: y - 5, "font-size": 12, fill: "#ffffffaa" }, z.name));
+  }
+  for (const s of cam.demo.seats || []) {
+    svg.appendChild(svgEl("text", { x: s.x, y: s.y, "font-size": 16, "font-weight": 800, "text-anchor": "middle",
+      fill: "#fff3c4", stroke: "#1d4d3a", "stroke-width": 4, "paint-order": "stroke" }, s.text));
   }
   const g = svgEl("g");
   svg.appendChild(g);
@@ -787,6 +786,7 @@ async function playDemo() {
     catch (e) { btn.disabled = false; btn.textContent = "Play demo game"; return; }
     btn.disabled = false;
   }
+  if (live.stream) stopLive();
   if (cam.i === 0) await restartDemo(false);
   cam.running = true; cam.active = true; btn.textContent = "Pause";
   document.getElementById("camRestart").disabled = false;
@@ -831,48 +831,134 @@ async function restartDemo(play = true) {
 document.getElementById("camPlay").addEventListener("click", playDemo);
 document.getElementById("camRestart").addEventListener("click", () => restartDemo(true));
 
-// Photo mode: one picture of your own tiles, read by Claude, confirmed by you.
-document.getElementById("photoInput").addEventListener("change", async e => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  const review = document.getElementById("photoReview");
-  review.hidden = false;
-  review.innerHTML = `<p class="muted">Reading your tiles…</p>`;
-  try {
-    const res = await fetch("/api/vision/photo", { method: "POST", headers: { "Content-Type": file.type || "image/jpeg" }, body: file });
-    const data = await res.json();
-    review.replaceChildren();
-    if (!res.ok) { const p = document.createElement("p"); p.className = "err"; p.textContent = data.error; review.appendChild(p); return; }
-    const h = document.createElement("p");
-    h.innerHTML = `<b>Is this your hand?</b> <span class="muted">Dashed tiles are ones Claude wasn't sure about.</span>`;
-    const row = document.createElement("div"); row.className = "row";
-    data.hand.forEach((t, i) => { const el = tileEl(t); if (data.unsure.includes(i)) el.classList.add("unsure"); row.appendChild(el); });
-    data.bonus.forEach(b => row.appendChild(bonusTileEl(b, { small: true })));
-    review.append(h, row);
-    if (data.note) { const n = document.createElement("div"); n.className = "warn"; n.textContent = data.note; review.appendChild(n); }
-    const ok = document.createElement("button"); ok.className = "btn primary"; ok.textContent = "Use these tiles";
-    ok.onclick = () => {
-      review.hidden = true;
-      change(() => {
-        const hand = [...data.hand];
-        state = { ...blank(), bonus: data.bonus };
-        if (hand.length > 13) state.drawn = hand.pop();
-        state.hand = hand;
-        state.target = hand.length < 13 ? "hand" : state.drawn ? "seen" : "drawn";
-      });
-    };
-    const no = document.createElement("button"); no.className = "btn"; no.textContent = "Cancel";
-    no.onclick = () => { review.hidden = true; };
-    const bar = document.createElement("div"); bar.className = "row"; bar.append(ok, no);
-    review.appendChild(bar);
-    const m = document.createElement("p"); m.className = "muted";
-    m.textContent = `Read by ${data.model}. You can fix any tile afterwards: tap it to remove it, then tap the right one.`;
-    review.appendChild(m);
-  } catch (err) {
-    review.innerHTML = `<p class="err">Can't reach the coach server.</p>`;
+// Live camera: show the video, watch for movement in the browser, and send a still frame to the
+// server only once the table has been still for a second. Claude reads it; the tracker needs two
+// agreeing reads, then reading pauses until something moves again (keeps API calls low).
+const live = { stream: null, timer: null, prev: null, stillSince: 0, lastRead: 0, busy: false,
+               settled: false, moving: false, started: 0, available: true };
+const MOTION = 7;            // mean brightness change (0-255) between checks that counts as movement
+const STILL_MS = 1000;       // how long the table must be still before reading
+const MIN_GAP_MS = 1500;     // at most one read per this many ms
+const motionCanvas = Object.assign(document.createElement("canvas"), { width: 64, height: 36 });
+const grabCanvas = document.createElement("canvas");
+
+function liveStatus(text) { document.getElementById("camStatus").textContent = text; }
+
+function showLiveView(on) {
+  document.getElementById("camVideo").hidden = !on;
+  document.getElementById("camSvg").style.display = on ? "none" : "";
+  document.getElementById("camLegend").hidden = on;
+  document.getElementById("camLive").textContent = on ? "Stop camera" : "Use my camera";
+  document.getElementById("camLive").classList.toggle("primary", on);
+}
+
+async function startLive() {
+  if (live.stream) return stopLive();
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    document.getElementById("camCaption").textContent = "The browser only allows the camera on https:// pages or on this computer (localhost). "
+      + "On a phone, start the coach with --cert and --key (see the README).";
+    return;
   }
-});
+  try {
+    live.stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+  } catch (e) {
+    document.getElementById("camCaption").textContent = e.name === "NotAllowedError" ? "Camera permission was refused. Allow it in the browser and try again."
+      : e.name === "NotFoundError" ? "No camera found on this device." : `Couldn't open the camera: ${e.message}`;
+    return;
+  }
+  cam.running = false; cam.runId++;                    // stop the demo if it was playing
+  document.getElementById("camPlay").textContent = "Play demo game";
+  document.getElementById("camEvents").replaceChildren();
+  try {
+    await fetch("/api/vision/reset", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: cam.session, live: true }) });
+  } catch (e) {}
+  change(() => { state = blank(); });
+  cam.active = true;
+  Object.assign(live, { prev: null, stillSince: performance.now(), lastRead: 0, busy: false, settled: false, moving: false, started: performance.now() });
+  const video = document.getElementById("camVideo");
+  video.srcObject = live.stream;
+  await video.play().catch(() => {});
+  showLiveView(true);
+  document.getElementById("camCaption").textContent = "Live camera: hold the phone behind your shoulder so it sees your tiles and the middle of the table.";
+  liveStatus("Starting…");
+  live.timer = setInterval(liveTick, 250);
+}
+
+function stopLive() {
+  clearInterval(live.timer); live.timer = null;
+  live.stream?.getTracks().forEach(t => t.stop()); live.stream = null;
+  document.getElementById("camVideo").srcObject = null;
+  showLiveView(false);
+  liveStatus("Camera off.");
+}
+
+function motionScore(video) {
+  const ctx = motionCanvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, 64, 36);
+  const px = ctx.getImageData(0, 0, 64, 36).data;
+  const grey = new Float32Array(64 * 36);
+  for (let i = 0; i < grey.length; i++) grey[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+  let diff = 0;
+  if (live.prev) for (let i = 0; i < grey.length; i++) diff += Math.abs(grey[i] - live.prev[i]);
+  live.prev = grey;
+  return live.prev && diff ? diff / grey.length : 0;
+}
+
+async function liveTick() {
+  const video = document.getElementById("camVideo");
+  if (!video.videoWidth || live.busy) return;
+  const now = performance.now();
+  if (motionScore(video) > MOTION) {
+    live.stillSince = now;
+    if (!live.moving) {
+      live.moving = true; live.settled = false;
+      liveStatus("Movement: waiting for the table to be still…");
+      // Tell the tracker hands are over the table so half-seen views never count.
+      fetch("/api/vision/frame", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: cam.session, live: true, frame: { motion: true, detections: [] } }) })
+        .then(r => r.json()).then(out => out.status && setVotes(out.status)).catch(() => {});
+    }
+    return;
+  }
+  live.moving = false;
+  if (live.settled || now - live.stillSince < STILL_MS || now - live.lastRead < MIN_GAP_MS) return;
+
+  live.busy = true;
+  liveStatus("Reading the table…");
+  const scale = Math.min(1, 1600 / video.videoWidth);
+  grabCanvas.width = Math.round(video.videoWidth * scale); grabCanvas.height = Math.round(video.videoHeight * scale);
+  grabCanvas.getContext("2d").drawImage(video, 0, 0, grabCanvas.width, grabCanvas.height);
+  const blob = await new Promise(r => grabCanvas.toBlob(r, "image/jpeg", 0.85));
+  const t = (now - live.started) / 1000;
+  try {
+    const res = await fetch(`/api/vision/camera?session=${encodeURIComponent(cam.session)}`,
+      { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob });
+    const out = await res.json();
+    if (!res.ok) {
+      liveStatus(out.error);
+      live.lastRead = performance.now() + 8000;          // back off after an error
+    } else {
+      if (out.status) setVotes(out.status);
+      out.events.forEach(e => logEvent(t, e));
+      if (out.state && document.getElementById("camAuto").checked) applyCamState(out.state);
+      live.settled = out.settled;
+      liveStatus(out.read.hands_over_table ? "Hands over the table, waiting…"
+        : out.settled ? `Table read (${out.read.hand} tiles in your hand). Waiting for the next move.`
+        : "Reading again to confirm…");
+      if (out.read.note) document.getElementById("camCaption").textContent = `Check: ${out.read.note}`;
+      live.lastRead = performance.now();
+    }
+  } catch (e) {
+    liveStatus("Can't reach the coach server.");
+    live.lastRead = performance.now() + 8000;
+  } finally {
+    live.busy = false;
+  }
+}
+
+document.getElementById("camLive").addEventListener("click", startLive);
 
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => change(() => state.target = b.dataset.target)));
 document.getElementById("fromLeft").addEventListener("change", e => change(() => state.fromLeft = e.target.checked));
@@ -883,6 +969,8 @@ document.getElementById("undo").addEventListener("click", () => { if (history.le
 document.getElementById("reset").addEventListener("click", () => change(() => { state = blank(); }));
 fetch("/api/status").then(r => r.json()).then(s => {
   document.getElementById("engine").textContent = s.jev_configured ? "Singapore rules · Jev on" : "Singapore rules · Jev off";
+  if (!s.camera_reader) { const b = document.getElementById("camLive");
+    b.title = "Reading tiles from the camera needs:  pip install anthropic  and ANTHROPIC_API_KEY in .env"; b.style.opacity = .55; }
 }).catch(() => {});
 render();
 </script>
